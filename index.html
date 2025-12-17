@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- MODIFICACIÓN 1: Cambio de título del documento -->
     <title>H.C. dra Abraldes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -15,7 +14,6 @@
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- MODIFICACIÓN 5: Favicon (Stethoscope Icon SVG Data URI) -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230EA5E9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3'%3E%3C/path%3E%3Cpath d='M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4'%3E%3C/path%3E%3Ccircle cx='20' cy='10' r='2'%3E%3C/circle%3E%3C/svg%3E" type="image/svg+xml">
 
     <style>
@@ -23,7 +21,6 @@
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Animations */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
@@ -38,9 +35,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ------------------------------------------------------------------
-        // CONFIGURACIÓN DE FIREBASE
-        // ------------------------------------------------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
             authDomain: "pediapp-61b0c.firebaseapp.com",
@@ -49,16 +43,12 @@
             messagingSenderId: "639384422144",
             appId: "1:639384422144:web:924e5fcbf41bb2d1cd15e5"
         };
-        // ------------------------------------------------------------------
 
-        // Inicialización segura
         let app, auth, db;
-        const appId = "historia-clinica-v1"; // Identificador para organizar los datos
+        const appId = "historia-clinica-v1";
 
         try {
-            // Se usa la configuración original
             app = initializeApp(firebaseConfig);
-
             if (app) {
                 auth = getAuth(app);
                 db = getFirestore(app);
@@ -67,40 +57,22 @@
             console.error("Error inicializando Firebase:", e);
         }
 
-        // Exponer Firebase a la ventana global para React
         window.firebaseData = { 
-            auth, 
-            db, 
-            appId, 
-            signInAnonymously, 
-            onAuthStateChanged, 
-            collection, 
-            addDoc, 
-            updateDoc, 
-            deleteDoc, 
-            doc, 
-            onSnapshot, 
-            serverTimestamp 
+            auth, db, appId, signInAnonymously, onAuthStateChanged, 
+            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
         };
     </script>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, Component } = React;
         
-        // --- Icon System (Inlined for Stability) ---
+        // --- Icon System ---
         const Icon = ({ children, size = 24, className = "", ...props }) => (
             <svg 
                 xmlns="http://www.w3.org/2000/svg" 
-                width={size} 
-                height={size} 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className={`lucide ${className}`}
-                {...props}
+                width={size} height={size} viewBox="0 0 24 24" fill="none" 
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" 
+                strokeLinejoin="round" className={`lucide ${className}`} {...props}
             >
                 {children}
             </svg>
@@ -112,7 +84,6 @@
         const Calendar = (props) => <Icon {...props}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></Icon>;
         const FileText = (props) => <Icon {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></Icon>;
         const Activity = (props) => <Icon {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
-        // CORRECCIÓN: Se cambia la etiqueta de cierre </Trash2> por </Icon>
         const Trash2 = (props) => <Icon {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>;
         const Save = (props) => <Icon {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
         const ArrowLeft = (props) => <Icon {...props}><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></Icon>;
@@ -123,14 +94,13 @@
         const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
         const Baby = (props) => <Icon {...props}><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></Icon>;
         const Stethoscope = (props) => <Icon {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></Icon>;
-        const ChevronDown = (props) => <Icon {...props}><polyline points="6 9 12 15 18 9"/></Icon>;
         const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
         const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
+        const Phone = (props) => <Icon {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></Icon>;
 
 
         // --- Helper Functions ---
-        
         function calculateAge(birthDate) {
             if (!birthDate) return "";
             const today = new Date();
@@ -146,41 +116,25 @@
             return `${years} años, ${months} meses`;
         }
         
-        // Función para calcular la edad en una fecha específica
         function calculateAgeAtDate(birthDateStr, consultationDateMs) {
             if (!birthDateStr || !consultationDateMs) return "";
-            
             const birth = new Date(birthDateStr);
             const consultation = new Date(consultationDateMs);
-            
             let years = consultation.getFullYear() - birth.getFullYear();
             let months = consultation.getMonth() - birth.getMonth();
             let days = consultation.getDate() - birth.getDate();
-
             if (days < 0) {
                 months--;
-                // Calcular días en el mes anterior
                 days += new Date(consultation.getFullYear(), consultation.getMonth(), 0).getDate();
             }
-
             if (months < 0) {
                 years--;
                 months += 12;
             }
-
-            if (years >= 1) {
-                // Mostrar hasta meses si tiene más de 1 año
-                return `${years} a${years !== 1 ? 'ños' : 'ño'}, ${months} m${months !== 1 ? 'eses' : 'es'}`;
-            } else if (months >= 1) {
-                // Mostrar meses y días si tiene menos de 1 año
-                return `${months} m${months !== 1 ? 'eses' : 'es'}, ${days} d${days !== 1 ? 'ías' : 'ía'}`;
-            } else if (days >= 0) {
-                return `${days} d${days !== 1 ? 'ías' : 'ía'}`;
-            } else {
-                return "Fecha inválida"; 
-            }
+            if (years >= 1) return `${years} a${years !== 1 ? 'ños' : 'ño'}, ${months} m${months !== 1 ? 'eses' : 'es'}`;
+            if (months >= 1) return `${months} m${months !== 1 ? 'eses' : 'es'}, ${days} d${days !== 1 ? 'ías' : 'ía'}`;
+            return `${days} d${days !== 1 ? 'ías' : 'ía'}`;
         }
-
 
         function formatDate(timestamp) {
             if (!timestamp) return 'Sin fecha';
@@ -197,110 +151,38 @@
                 document.execCommand('copy');
                 return true;
             } catch (err) {
-                console.error('Error al copiar al portapapeles:', err);
                 return false;
             } finally {
                 document.body.removeChild(textarea);
             }
         }
         
-        // NUEVA FUNCIÓN: Genera el resumen en texto plano para compartir
         function generatePatientSummary(patient) {
             const age = calculateAge(patient.birthDate);
-            
             let summary = `--- Historia Clínica: ${patient.lastName}, ${patient.firstName} ---\n`;
             summary += `DNI: ${patient.dni}\n`;
+            if (patient.phone) summary += `Teléfono: ${patient.phone}\n`;
             summary += `Fecha de Nacimiento: ${patient.birthDate} (Edad: ${age})\n\n`;
-
-            summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory.join('\n- ') || 'Ninguno'}\n\n`;
-            summary += `ANTECEDENTES PATOLÓGICOS:\n- ${patient.pathologicalHistory.join('\n- ') || 'Ninguno'}\n\n`;
-
-            if (patient.consultations && patient.consultations.length > 0) {
+            summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            summary += `ANTECEDENTES PATOLÓGICOS:\n- ${patient.pathologicalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            if (patient.consultations?.length > 0) {
                 summary += `HISTORIAL DE CONSULTAS (${patient.consultations.length}):\n`;
-                // Recorrer al revés para que la más reciente aparezca primero
                 [...patient.consultations].sort((a, b) => b.date - a.date).forEach(c => {
-                    const dateStr = formatDate(c.date);
-                    const ageAtConsultation = calculateAgeAtDate(patient.birthDate, c.date);
-                    
-                    summary += `\n--- Consulta del ${dateStr} (Edad: ${ageAtConsultation}) ---\n`;
-                    if (c.motive && c.motive.length > 0) {
-                        summary += `Motivo: ${c.motive.join(', ')}\n`;
-                    }
+                    summary += `\n--- Consulta del ${formatDate(c.date)} (Edad: ${calculateAgeAtDate(patient.birthDate, c.date)}) ---\n`;
+                    if (c.motive?.length > 0) summary += `Motivo: ${c.motive.join(', ')}\n`;
                     if (c.weight || c.height || c.headCircumference) {
-                        summary += `Antropometría:\n`;
-                        if (c.weight) summary += `  - Peso: ${c.weight} kg\n`;
-                        if (c.height) summary += `  - Talla: ${c.height} cm\n`;
-                        if (c.headCircumference) summary += `  - P. Cefálico: ${c.headCircumference}\n`;
+                        summary += `Antropometría: ${c.weight || '-'}kg | ${c.height || '-'}cm | PC: ${c.headCircumference || '-'}\n`;
                     }
-                    if (c.notes) {
-                        summary += `Notas de Evolución: ${c.notes.trim().replace(/\n/g, ' | ')}\n`;
-                    }
+                    if (c.notes) summary += `Evolución: ${c.notes.trim().replace(/\n/g, ' | ')}\n`;
                 });
-            } else {
-                summary += `HISTORIAL DE CONSULTAS: Ninguno registrado.\n`;
             }
-            
-            if (patient.pendingItems && patient.pendingItems.length > 0) {
-                summary += `\nPENDIENTES ACTUALES:\n- ${patient.pendingItems.map(p => p.text).join('\n- ') || 'Ninguno'}\n`;
+            if (patient.pendingItems?.length > 0) {
+                summary += `\nPENDIENTES:\n- ${patient.pendingItems.map(p => p.text).join('\n- ')}\n`;
             }
-
             return summary;
         }
 
-
-        // --- Error Boundary ---
-        class ErrorBoundary extends Component {
-            constructor(props) {
-                super(props);
-                this.state = { hasError: false, error: null };
-            }
-            static getDerivedStateFromError(error) {
-                return { hasError: true, error };
-            }
-            componentDidCatch(error, errorInfo) {
-                console.error("ErrorBoundary caught an error", error, errorInfo);
-            }
-            render() {
-                if (this.state.hasError) {
-                    return (
-                        <div className="p-8 text-center text-red-600 bg-red-50 h-screen flex flex-col items-center justify-center">
-                            <AlertCircle size={48} className="mb-4" />
-                            <h2 className="text-xl font-bold mb-2">Algo salió mal</h2>
-                            <p className="text-sm opacity-80 max-w-md">{this.state.error?.toString()}</p>
-                            <button onClick={() => window.location.reload()} className="mt-6 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                                Recargar Página
-                            </button>
-                        </div>
-                    );
-                }
-                return this.props.children;
-            }
-        }
-        
-        // --- Modal Base Component ---
-        const Modal = ({ children, isOpen, onClose, title }) => {
-            if (!isOpen) return null;
-            
-            return (
-                <div 
-                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" 
-                    onClick={onClose}
-                >
-                    <Card className="p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-between items-start border-b pb-3 mb-4">
-                            <h3 className="text-xl font-bold text-slate-800">{title}</h3>
-                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
-                                <X size={24} />
-                            </button>
-                        </div>
-                        {children}
-                    </Card>
-                </div>
-            );
-        };
-
-        // --- Utility Components ---
-
+        // --- UI Components ---
         const Card = ({ children, className = "" }) => (
             <div className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>
                 {children}
@@ -322,13 +204,29 @@
             );
         };
 
+        const Modal = ({ children, isOpen, onClose, title }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <Card className="p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-start border-b pb-3 mb-4">
+                            <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X size={24} /></button>
+                        </div>
+                        {children}
+                    </Card>
+                </div>
+            );
+        };
+
         const TagInput = ({ label, options, value = [], onChange, placeholder }) => {
             const [input, setInput] = useState("");
             const [isOpen, setIsOpen] = useState(false);
             
             const handleAdd = (tag) => {
-                if (!value.includes(tag)) {
-                    onChange([...value, tag]);
+                const cleanTag = tag.trim();
+                if (cleanTag && !value.includes(cleanTag)) {
+                    onChange([...value, cleanTag]);
                 }
                 setInput("");
                 setIsOpen(false);
@@ -353,8 +251,7 @@
                             </span>
                         ))}
                         <input
-                            type="text"
-                            value={input}
+                            type="text" value={input}
                             onChange={(e) => { setInput(e.target.value); setIsOpen(true); }}
                             onFocus={() => setIsOpen(true)}
                             onBlur={() => setTimeout(() => setIsOpen(false), 200)}
@@ -371,19 +268,12 @@
                     {isOpen && (input.length > 0 || filteredOptions.length > 0) && (
                         <div className="absolute z-10 top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
                             {filteredOptions.map(opt => (
-                                <div 
-                                    key={opt} 
-                                    className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-slate-700"
-                                    onMouseDown={() => handleAdd(opt)}
-                                >
+                                <div key={opt} className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-slate-700" onMouseDown={() => handleAdd(opt)}>
                                     {opt}
                                 </div>
                             ))}
                             {input.trim() && !filteredOptions.includes(input.trim()) && (
-                                <div 
-                                    className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-sky-600 font-medium border-t border-slate-100"
-                                    onMouseDown={() => handleAdd(input.trim())}
-                                >
+                                <div className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-sky-600 font-medium border-t border-slate-100" onMouseDown={() => handleAdd(input.trim())}>
                                     Agregar "{input}"
                                 </div>
                             )}
@@ -393,338 +283,168 @@
             );
         };
 
-        // --- Rules Guide Component ---
-        const RulesGuide = () => {
-            return (
-                <div className="p-4 bg-orange-100 border border-orange-300 rounded-xl mt-4 text-sm space-y-2">
-                    <p className="font-bold text-orange-800 flex items-center gap-2">
-                        <AlertCircle size={16} /> ¡ATENCIÓN: REGLAS DE SEGURIDAD REQUERIDAS!
-                    </p>
-                    <p className="text-slate-700">Para que la sincronización (acceso compartido) funcione, necesitas actualizar tus Reglas de Seguridad de Firestore en la Consola de Firebase.
-                    </p>
-                    <p className="text-slate-700 font-semibold">Regla a establecer:</p>
-                    <p className="text-slate-700">Asegúrate de que la siguiente regla sea aplicada a la ruta de la colección de pacientes:</p>
-                    
-                    <div className="bg-orange-200 p-3 rounded-lg font-mono text-xs overflow-x-auto">
-                        <code className="block text-orange-900 break-all mb-2">match /artifacts/{'historia-clinica-v1'}/public/data/patients/{documentId}</code>
-                        <code className="block text-orange-900 break-all">allow read, write: if request.auth != null;</code>
-                    </div>
-                </div>
-            );
-        };
-        
-        // NUEVO Componente: Modal para compartir resumen desde la lista
         const ListShareModal = ({ patient, onClose }) => {
             const [copied, setCopied] = useState(false);
-
             if (!patient) return null;
-            
             const summary = generatePatientSummary(patient);
-
             const handleCopy = () => {
                 if (copyToClipboard(summary)) {
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                 }
             };
-
             return (
-                <Modal isOpen={!!patient} onClose={onClose} title={`Compartir Resumen de ${patient.lastName}`}>
-                    <p className="text-sm text-slate-600 mb-3">
-                        Copia el resumen completo de la historia clínica en formato de texto plano para compartirlo fuera de la aplicación.
-                    </p>
+                <Modal isOpen={!!patient} onClose={onClose} title={`Compartir de ${patient.lastName}`}>
                     <div className="max-h-80 overflow-y-auto bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
                         <pre className="text-xs whitespace-pre-wrap font-mono text-slate-800">{summary}</pre>
                     </div>
-                    
-                    <div className="flex justify-end">
-                        <Button 
-                            variant="primary" 
-                            onClick={handleCopy} 
-                            className={`w-full ${copied ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}
-                        >
-                            {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
-                            {copied ? '¡Resumen Copiado!' : 'Copiar Resumen'}
-                        </Button>
-                    </div>
+                    <Button variant="primary" onClick={handleCopy} className={`w-full ${copied ? 'bg-emerald-500' : ''}`}>
+                        {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
+                        {copied ? '¡Copiado!' : 'Copiar Texto'}
+                    </Button>
                 </Modal>
             );
         };
 
-
-        // --- Main App Logic ---
-
-        const predefinedNeonatal = ["Prematuro", "Bajo peso al nacer", "Ictericia", "Distrés respiratorio", "Sano"];
-        const predefinedPathological = ["Asma", "Alergias", "Diabetes", "Otitis recurrente", "Convulsiones", "Celiaquía"];
-        // NUEVO: Opciones predefinidas para Motivo de Consulta
-        const predefinedConsultationReasons = ["Control de Niño Sano", "Fiebre", "Tos", "Dolor de Oído", "Erupción Cutánea", "Vacunación", "Revisión Post-enfermedad"];
-
-
+        // --- Main App ---
         const App = () => {
             const [user, setUser] = useState(null);
-            const [view, setView] = useState("list"); // 'list' | 'form'
+            const [view, setView] = useState("list");
             const [patients, setPatients] = useState([]);
             const [currentPatient, setCurrentPatient] = useState(null);
             const [searchTerm, setSearchTerm] = useState("");
             const [loading, setLoading] = useState(true);
-            const [errorMsg, setErrorMsg] = useState(null);
-            // NUEVO: Estado para compartir paciente desde la lista
             const [sharePatientData, setSharePatientData] = useState(null); 
 
-
-            // Firebase hooks
             const { auth, db, appId, signInAnonymously, onAuthStateChanged, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
 
-            // Auth Logic
-            useEffect(() => {
-                const initAuth = async () => {
-                    if (!auth) {
-                        setErrorMsg("Firebase no está configurado. Edita el archivo index.html con tus credenciales.");
-                        setLoading(false);
-                        return;
-                    }
+            // Repertorio Dinámico
+            const dynamicRepertoire = useMemo(() => {
+                const baseNeonatal = ["Prematuro", "Bajo peso al nacer", "Ictericia", "Distrés respiratorio", "Sano"];
+                const basePathological = ["Asma", "Alergias", "Diabetes", "Otitis recurrente", "Convulsiones", "Celiaquía"];
+                const baseReasons = ["Control de Niño Sano", "Fiebre", "Tos", "Dolor de Oído", "Erupción Cutánea", "Vacunación"];
+                
+                const neonatal = new Set(baseNeonatal);
+                const pathological = new Set(basePathological);
+                const reasons = new Set(baseReasons);
 
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (err) {
-                        console.error("Auth error", err);
-                        setErrorMsg("Error de autenticación. Verifica la configuración de Firebase.");
-                    }
-                };
-                initAuth();
-                
-                if (auth) {
-                    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
-                    return () => unsubscribe();
-                }
-            }, [auth]);
-
-            // Data Fetching
-            useEffect(() => {
-                if (!user || !db) return;
-                
-                // RUTA PÚBLICA PARA PERMITIR SINCRONIZACIÓN ENTRE DISPOSITIVOS
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
-                
-                const unsubscribe = onSnapshot(colRef, (snapshot) => {
-                    const loadedPatients = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    // DEBUG: Log para verificar la recuperación de datos de pacientes
-                    console.log("Pacientes recuperados:", loadedPatients); 
-                    loadedPatients.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
-                    setPatients(loadedPatients);
-                    setLoading(false);
-                    // Clear error if data loads successfully after initial error
-                    if (errorMsg && errorMsg.includes('Permisos')) {
-                        setErrorMsg(null);
-                    }
-                }, (error) => {
-                    console.error("Firestore error:", error);
-                    if (error.code === 'permission-denied') {
-                        // MENSAJE DE ERROR MÁS ESPECÍFICO
-                        setErrorMsg("Error de Permisos (403): Parece que las Reglas de Seguridad de Firestore no permiten acceso a la colección pública. ¡Necesitas actualizar tus reglas!");
-                    } else {
-                        setErrorMsg("Error al cargar pacientes: " + error.message);
-                    }
-                    setLoading(false);
+                patients.forEach(p => {
+                    p.neonatalHistory?.forEach(v => neonatal.add(v));
+                    p.pathologicalHistory?.forEach(v => pathological.add(v));
+                    p.consultations?.forEach(c => c.motive?.forEach(v => reasons.add(v)));
                 });
 
-                return () => unsubscribe();
+                return {
+                    neonatal: Array.from(neonatal).sort(),
+                    pathological: Array.from(pathological).sort(),
+                    reasons: Array.from(reasons).sort()
+                };
+            }, [patients]);
+
+            useEffect(() => {
+                if (!auth) return;
+                signInAnonymously(auth).catch(console.error);
+                return onAuthStateChanged(auth, setUser);
+            }, [auth]);
+
+            useEffect(() => {
+                if (!user || !db) return;
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
+                return onSnapshot(colRef, (snapshot) => {
+                    const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    loaded.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+                    setPatients(loaded);
+                    setLoading(false);
+                });
             }, [user, db, appId]);
 
-            // CRUD Operations
-            const handleSavePatient = async (patientData) => {
+            const handleSave = async (data) => {
                 if (!user || !db) return;
                 setLoading(true);
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
+                const toSave = { ...data, updatedAt: serverTimestamp() };
                 try {
-                    // RUTA PÚBLICA PARA GUARDAR
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
-                    const dataToSave = {
-                        ...patientData,
-                        updatedAt: serverTimestamp(),
-                        // Normalize search fields
-                        searchKeywords: [
-                            patientData.firstName.toLowerCase(), 
-                            patientData.lastName.toLowerCase(), 
-                            patientData.dni
-                        ]
-                    };
-
-                    if (currentPatient && currentPatient.id) {
-                        await updateDoc(doc(colRef, currentPatient.id), dataToSave);
-                    } else {
-                        await addDoc(colRef, { ...dataToSave, createdAt: serverTimestamp() });
-                    }
+                    if (currentPatient?.id) await updateDoc(doc(colRef, currentPatient.id), toSave);
+                    else await addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
                     setView("list");
                     setCurrentPatient(null);
-                } catch (err) {
-                    console.error("Save error:", err);
-                    alert("Error al guardar. Intente nuevamente.");
-                } finally {
-                    setLoading(false);
-                }
+                } catch (e) { alert("Error al guardar"); }
+                setLoading(false);
             };
 
-            const handleDeletePatient = async (id) => {
-                // MODIFICACIÓN: Uso de modal custom en lugar de confirm() nativo
-                if (window.confirm("¿Está seguro de eliminar este paciente y toda su historia?")) {
-                    try {
-                        // RUTA PÚBLICA PARA BORRAR
-                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'patients', id));
-                    } catch (err) {
-                        console.error(err);
-                    }
-                }
-            };
-
-            // Filter Logic (used for search)
-            const filteredPatients = useMemo(() => {
-                if (!searchTerm) return patients;
-                const lower = searchTerm.toLowerCase();
-                return patients.filter(p => 
-                    (p.firstName || '').toLowerCase().includes(lower) || 
-                    (p.lastName || '').toLowerCase().includes(lower) || 
-                    (p.dni || '').includes(lower)
-                );
-            }, [patients, searchTerm]);
-
-            // Determinar la lista a renderizar (limitada a 5 si no hay búsqueda)
-            const listToRender = useMemo(() => {
-                if (searchTerm) {
-                    return filteredPatients;
-                }
-                // Mostrar solo las últimas 5 historias consultadas
-                return filteredPatients.slice(0, 5); 
-            }, [filteredPatients, searchTerm]);
-
-
-            // Views
-            if (!auth) return (
-                <div className="h-screen flex flex-col items-center justify-center text-slate-600 p-8 text-center">
-                    <AlertCircle size={48} className="text-amber-500 mb-4" />
-                    <h2 className="text-xl font-bold">Falta Configuración</h2>
-                    <p className="max-w-md mt-2">Para usar esta app, debes abrir el archivo <code>index.html</code> y pegar tus credenciales de Firebase en la sección marcada al principio.</p>
-                </div>
+            const filtered = patients.filter(p => 
+                `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase())
             );
+            const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
 
-            if (!user) return <div className="h-screen flex items-center justify-center text-slate-500">Iniciando sesión segura...</div>;
+            if (!user) return <div className="h-screen flex items-center justify-center text-slate-500">Cargando...</div>;
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl shadow-slate-200">
-                    {/* Renderiza el modal de compartir de la lista */}
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl">
                     {sharePatientData && <ListShareModal patient={sharePatientData} onClose={() => setSharePatientData(null)} />}
                     
-                    {/* Header */}
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b border-slate-100 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sky-600">
                             <Baby size={28} strokeWidth={2.5} />
-                            {/* MODIFICACIÓN 1: Cambio de título en la interfaz */}
                             <h1 className="text-xl font-bold tracking-tight text-slate-800">H.C. dra Abraldes</h1>
                         </div>
-                        {view === 'form' && (
-                            <Button variant="secondary" onClick={() => setView('list')} className="text-xs py-1 px-3">
-                                <ArrowLeft size={16} /> Volver
-                            </Button>
-                        )}
+                        {view === 'form' && <Button variant="secondary" onClick={() => setView('list')} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>}
                     </header>
 
-                    {/* Main Content */}
                     <main className="p-4">
-                        {errorMsg && (
-                            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
-                                <AlertCircle size={16} /> {errorMsg}
-                            </div>
-                        )}
-                        
-                        {/* Muestra la guía si hay un error de permisos */}
-                        {errorMsg && errorMsg.includes('Permisos') && <RulesGuide />}
-
                         {view === 'list' ? (
                             <div className="space-y-6">
-                                {/* Search Section */}
                                 <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
-                                    <h2 className="text-lg font-bold text-slate-700">Pacientes</h2>
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                                         <input 
-                                            type="text" 
-                                            placeholder="Buscar por nombre, apellido o DNI..." 
-                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none border border-transparent focus:border-sky-300 focus:bg-white transition-all"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            type="text" placeholder="Buscar paciente..." 
+                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none border border-transparent focus:border-sky-300 focus:bg-white"
+                                            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                                         />
                                     </div>
-                                    <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full justify-center">
-                                        <Plus size={20} /> Nuevo Paciente
-                                    </Button>
+                                    <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full justify-center"><Plus size={20} /> Nuevo Paciente</Button>
                                 </div>
 
-                                {/* Results List */}
                                 <div className="space-y-3">
-                                    {loading ? (
-                                        <p className="text-center text-slate-400 py-4">Cargando pacientes...</p>
-                                    ) : listToRender.length === 0 ? (
-                                        <div className="text-center py-10 opacity-60">
-                                            <Baby size={48} className="mx-auto mb-2 text-slate-300" />
-                                            <p>No se encontraron pacientes</p>
-                                        </div>
-                                    ) : (
-                                        listToRender.map(patient => (
-                                            <Card key={patient.id} className="hover:shadow-md transition-shadow group relative">
-                                                {/* Contenido principal (clickable para abrir el formulario) */}
-                                                <div className="pr-16 cursor-pointer" onClick={() => { setCurrentPatient(patient); setView('form'); }}>
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h3 className="font-bold text-lg text-slate-800">{patient.lastName}, {patient.firstName}</h3>
-                                                            <p className="text-slate-500 text-sm flex items-center gap-1">
-                                                                <Activity size={14} /> DNI: {patient.dni}
-                                                            </p>
-                                                        </div>
-                                                        <div className="bg-sky-50 text-sky-700 px-2 py-1 rounded text-xs font-bold">
-                                                            {calculateAge(patient.birthDate)}
-                                                        </div>
-                                                    </div>
-                                                    {patient.pendingItems && patient.pendingItems.length > 0 && (
-                                                        <div className="mt-3 flex items-center gap-2 text-amber-600 text-xs font-medium bg-amber-50 px-2 py-1 rounded w-fit">
-                                                            <AlertCircle size={12} /> {patient.pendingItems.length} pendientes
-                                                        </div>
-                                                    )}
+                                    {listToRender.map(p => (
+                                        <Card key={p.id} className="group relative">
+                                            <div className="pr-20 cursor-pointer" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                                <h3 className="font-bold text-lg text-slate-800">{p.lastName}, {p.firstName}</h3>
+                                                <p className="text-slate-500 text-sm">DNI: {p.dni} {p.phone && `| Tel: ${p.phone}`}</p>
+                                                <div className="mt-2 flex gap-2">
+                                                    <span className="bg-sky-50 text-sky-700 px-2 py-1 rounded text-[10px] font-bold uppercase">{calculateAge(p.birthDate)}</span>
+                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[10px] font-bold">Pendenties: {p.pendingItems.length}</span>}
                                                 </div>
-                                                
-                                                {/* Botones de acción (Borrar y Compartir) */}
-                                                <div className="absolute top-4 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                                    {/* NUEVO Botón Compartir */}
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); setSharePatientData(patient); }}
-                                                        className="text-slate-400 hover:text-sky-500 p-2 rounded-full bg-white/50 hover:bg-white transition-all"
-                                                        title="Compartir ficha (Texto Plano)"
-                                                    >
-                                                        <Share2 size={18} />
-                                                    </button>
-                                                    {/* Botón de borrar */}
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); handleDeletePatient(patient.id); }}
-                                                        className="text-slate-300 hover:text-red-500 p-2 rounded-full bg-white/50 hover:bg-white transition-all"
-                                                        title="Eliminar paciente"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                </div>
-                                            </Card>
-                                        ))
-                                    )}
-                                    {!searchTerm && patients.length > 5 && (
-                                        <p className="text-center text-slate-500 text-sm mt-4">Mostrando las últimas 5 de {patients.length} historias. Usa la búsqueda para ver todas.</p>
-                                    )}
+                                            </div>
+                                            
+                                            {/* Iconos siempre visibles */}
+                                            <div className="absolute top-4 right-2 flex gap-1 z-10">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }}
+                                                    className="text-sky-500 p-2 rounded-full bg-slate-50 hover:bg-sky-100 transition-all shadow-sm"
+                                                    title="Compartir"
+                                                >
+                                                    <Share2 size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); if(confirm("¿Eliminar?")) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'patients', p.id)); }}
+                                                    className="text-rose-400 p-2 rounded-full bg-slate-50 hover:bg-rose-100 transition-all shadow-sm"
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </Card>
+                                    ))}
                                 </div>
                             </div>
                         ) : (
                             <PatientForm 
                                 initialData={currentPatient} 
-                                onSave={handleSavePatient} 
-                                onCancel={() => setView('list')} 
+                                onSave={handleSave} 
+                                onCancel={() => setView('list')}
+                                options={dynamicRepertoire}
                             />
                         )}
                     </main>
@@ -732,136 +452,25 @@
             );
         };
 
-        // --- Patient Form Component ---
-
-        const PatientForm = ({ initialData, onSave, onCancel }) => {
+        const PatientForm = ({ initialData, onSave, onCancel, options }) => {
             const [formData, setFormData] = useState({
-                firstName: '', lastName: '', dni: '', birthDate: '',
-                neonatalHistory: [], pathologicalHistory: [],
-                pendingItems: [], images: [],
-                consultations: [] // Array para historial de consultas
+                firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
+                neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
             });
-            // Nuevo estado para la consulta actual que se está registrando
             const [newConsultation, setNewConsultation] = useState({
-                date: new Date().toISOString().split('T')[0], // Fecha de hoy por defecto
-                motive: [], // NUEVO: Motivo de consulta (tags)
-                weight: '', height: '', headCircumference: '',
-                notes: ''
+                date: new Date().toISOString().split('T')[0], motive: [], weight: '', height: '', headCircumference: '', notes: ''
             });
-            const [ageString, setAgeString] = useState("");
             const [newPending, setNewPending] = useState("");
             const [modalImageSrc, setModalImageSrc] = useState(null); 
-            const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); 
-            // NUEVO: Estado para el modal de compartir
-            const [isShareModalOpen, setIsShareModalOpen] = useState(false); 
-
-            // Referencias para los inputs de archivo
-            const cameraInputRef = useRef(null);
             const galleryInputRef = useRef(null);
 
             useEffect(() => {
-                if (initialData) {
-                    // Cargar datos de paciente, incluyendo el historial de consultas
-                    setFormData({
-                        ...initialData,
-                        neonatalHistory: initialData.neonatalHistory || [],
-                        pathologicalHistory: initialData.pathologicalHistory || [],
-                        pendingItems: initialData.pendingItems || [],
-                        images: initialData.images || [],
-                        consultations: initialData.consultations || [],
-                    });
-                    // Limpiar la nueva consulta si se está editando una historia existente, para forzar un nuevo registro
-                    setNewConsultation({
-                        date: new Date().toISOString().split('T')[0],
-                        motive: [], // Inicializar motivo
-                        weight: '', height: '', headCircumference: '', notes: ''
-                    });
-                    // DEBUG: Muestra los datos de la historia clínica cargada
-                    console.log("Historia Clínica cargada:", initialData.id, initialData.firstName, initialData.consultations);
-                }
+                if (initialData) setFormData({ ...initialData });
             }, [initialData]);
 
-            // Auto calculate age
-            useEffect(() => {
-                if (formData.birthDate) {
-                    setAgeString(calculateAge(formData.birthDate));
-                }
-            }, [formData.birthDate]);
-
-            const handleChange = (field, value) => {
-                setFormData(prev => ({ ...prev, [field]: value }));
-            };
-
-            const handleNewConsultationChange = (field, value) => {
-                setNewConsultation(prev => ({ ...prev, [field]: value }));
-            };
-
-            // FIX 1: Modificado para devolver la lista actualizada y limpiar el estado de 'newConsultation'
-            const handleSaveCurrentConsultation = () => {
-                const { weight, height, headCircumference, notes, motive } = newConsultation;
-                
-                // Si al menos un campo de la consulta está lleno, se registra
-                if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
-                    const consultationToAdd = {
-                        ...newConsultation,
-                        date: new Date(newConsultation.date).getTime(), // Guardar como timestamp para ordenar
-                        id: Date.now()
-                    };
-                    const updatedConsultations = [...formData.consultations, consultationToAdd]
-                        // Ordenar por fecha, el más reciente primero
-                        .sort((a, b) => b.date - a.date); 
-
-                    // DEBUG: Confirma que se añadió la nueva consulta al estado local
-                    console.log("Nueva consulta calculada:", consultationToAdd);
-
-                    // Limpiar la nueva consulta después de agregar
-                    setNewConsultation({
-                        date: new Date().toISOString().split('T')[0],
-                        motive: [],
-                        weight: '', height: '', headCircumference: '', notes: ''
-                    });
-                    
-                    // Devolver el array actualizado para que handleSubmit lo use
-                    return updatedConsultations;
-                }
-                
-                // Devolver el array original si no hay cambios en la consulta actual
-                return formData.consultations; 
-            }
-
-            // FIX 1: Modificado para usar la lista de consultas devuelta por handleSaveCurrentConsultation
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                
-                // 1. Obtener la lista de consultas, asegurando que la nueva consulta se haya procesado
-                const updatedConsultations = handleSaveCurrentConsultation();
-
-                // 2. Crear el objeto de datos final con las consultas actualizadas
-                const dataToSave = {
-                    ...formData,
-                    consultations: updatedConsultations
-                };
-                
-                // 3. Llamar a la función de guardado principal
-                onSave(dataToSave);
-            }
-
-            const addPending = () => {
-                if (!newPending.trim()) return;
-                handleChange('pendingItems', [...formData.pendingItems, { id: Date.now(), text: newPending }]);
-                setNewPending("");
-            };
-
-            const removePending = (id) => {
-                handleChange('pendingItems', formData.pendingItems.filter(item => item.id !== id));
-            };
-
-            // MODIFICACIÓN 4: Lógica de compresión de imagen mejorada para archivos ligeros y legibles.
             const handleImageUpload = (e) => {
-                setIsUploadModalOpen(false);
                 const file = e.target.files[0];
                 if (!file) return;
-
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     const img = new Image();
@@ -869,471 +478,139 @@
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
-                        
-                        // Máxima dimensión de imagen (para ligereza)
                         const maxDim = 800; 
-                        let w = img.width;
-                        let h = img.height;
-                        
-                        // Si la imagen es más grande que la dimensión máxima, se escala
+                        let w = img.width, h = img.height;
                         if (w > maxDim || h > maxDim) {
-                            const ratio = Math.min(maxDim / w, maxDim / h);
-                            w *= ratio;
-                            h *= ratio;
+                            const r = Math.min(maxDim / w, maxDim / h);
+                            w *= r; h *= r;
                         }
-                        
-                        canvas.width = w;
-                        canvas.height = h;
+                        canvas.width = w; canvas.height = h;
                         ctx.drawImage(img, 0, 0, w, h);
-                        
-                        // Compresión a calidad 0.7 para JPEG (buen balance entre legibilidad de texto y tamaño).
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); 
-
-                        // El Base64 es la imagen final, se comprueba su tamaño (aproximado)
-                        const sizeInBytes = (compressedBase64.length * 0.75) - 2; 
-
-                        if (sizeInBytes > 2 * 1024 * 1024) {
-                            // Aunque se comprime, si sigue siendo demasiado grande (ej. fotos panorámicas o muy detalladas)
-                            alert("Advertencia: La imagen comprimida sigue siendo muy grande. Intente con una foto de menor resolución.");
-                        }
-                        
-                        handleChange('images', [...formData.images, { id: Date.now(), src: compressedBase64, date: new Date().toLocaleDateString('es-AR') }]);
+                        const b64 = canvas.toDataURL('image/jpeg', 0.7);
+                        setFormData(p => ({ ...p, images: [...(p.images || []), { id: Date.now(), src: b64, date: new Date().toLocaleDateString('es-AR') }] }));
                     }
                 };
                 reader.readAsDataURL(file);
             };
 
-            const removeImage = (id) => {
-                if(window.confirm("¿Eliminar imagen?")) {
-                    handleChange('images', formData.images.filter(img => img.id !== id));
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                let updatedConsultations = [...(formData.consultations || [])];
+                const { weight, height, headCircumference, notes, motive } = newConsultation;
+                if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
+                    updatedConsultations.push({ ...newConsultation, date: new Date(newConsultation.date).getTime(), id: Date.now() });
                 }
-            };
-            
-            // Componente Modal para visualización a pantalla completa
-            const ImageViewerModal = ({ src, onClose }) => {
-                if (!src) return null;
-                return (
-                    <div 
-                        className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 animate-fade-in" 
-                        onClick={onClose}
-                    >
-                        <button 
-                            className="absolute top-4 right-4 text-white p-3 rounded-full bg-white/10 hover:bg-white/30 transition-all"
-                            onClick={onClose}
-                        >
-                            <X size={28} />
-                        </button>
-                        {/* MEJORA VISUALIZACIÓN: Asegura que la imagen se ajuste al tamaño de la pantalla/móvil */}
-                        <img 
-                            src={src} 
-                            alt="Documento escaneado a pantalla completa" 
-                            className="max-w-full max-h-full object-contain shadow-2xl"
-                            style={{ maxWidth: '95vw', maxHeight: '95vh' }}
-                            onClick={(e) => e.stopPropagation()} // Evitar cerrar al hacer clic en la imagen
-                        />
-                    </div>
-                );
-            };
-
-            // MODIFICACIÓN 4: Modal para elegir Galería o Cámara
-            const UploadSelectionModal = ({ onClose, onCameraClick, onGalleryClick }) => {
-                if (!isUploadModalOpen) return null;
-
-                return (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
-                        <Card className="p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-                            <h3 className="text-xl font-bold mb-4 text-slate-800">Subir Archivo</h3>
-                            <p className="text-sm text-slate-600 mb-4">La imagen será comprimida (Max 800px / Calidad 70%) para asegurar la legibilidad y un almacenamiento eficiente.</p>
-                            <div className="space-y-4">
-                                <Button 
-                                    className="w-full bg-sky-100 text-sky-700 hover:bg-sky-200" 
-                                    onClick={onGalleryClick}
-                                >
-                                    <GalleryHorizontal size={20} /> Subir de Galería
-                                </Button>
-                                <Button 
-                                    className="w-full bg-sky-100 text-sky-700 hover:bg-sky-200" 
-                                    onClick={onCameraClick}
-                                >
-                                    <Camera size={20} /> Tomar Foto Nueva
-                                </Button>
-                            </div>
-                            <Button variant="secondary" className="w-full mt-4" onClick={onClose}>
-                                Cancelar
-                            </Button>
-                        </Card>
-                    </div>
-                );
-            };
-            
-            // Componente Modal para Compartir Ficha (solo ID en este contexto)
-            const ShareModal = ({ isOpen, onClose, patientId }) => {
-                const [copied, setCopied] = useState(false);
-                const shareLink = `[URL_DE_LA_APP]/patient/${patientId}`;
-
-                const handleCopy = () => {
-                    if (copyToClipboard(patientId)) {
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                    }
-                };
-                
-                const handleCopyLink = () => {
-                    if (copyToClipboard(shareLink)) {
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                    }
-                };
-
-                return (
-                    <Modal isOpen={isOpen} onClose={onClose} title="Compartir Ficha (ID)">
-                        <p className="text-sm text-slate-600 mb-4">
-                            Comparta el ID de esta ficha para que otros usuarios con acceso a la base de datos puedan verla o editarla.
-                        </p>
-                        
-                        <div className="mb-4">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">ID del Paciente (Para Colaboración)</label>
-                            <div className="flex bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                                <div className="p-3 flex-1 text-sm font-mono truncate text-slate-700">
-                                    {patientId || 'Cargando ID...'}
-                                </div>
-                                <Button 
-                                    variant="secondary" 
-                                    onClick={handleCopy} 
-                                    className={`flex-shrink-0 rounded-l-none ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-200 hover:bg-slate-300'}`}
-                                >
-                                    {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
-                                    {copied ? '¡Copiado!' : 'Copiar ID'}
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="text-right">
-                             <Button variant="primary" onClick={onClose}>Cerrar</Button>
-                        </div>
-                    </Modal>
-                );
-            };
-
+                onSave({ ...formData, consultations: updatedConsultations.sort((a,b) => b.date - a.date) });
+            }
 
             return (
-                <>
-                    <ImageViewerModal src={modalImageSrc} onClose={() => setModalImageSrc(null)} />
-                    <UploadSelectionModal 
-                        onClose={() => setIsUploadModalOpen(false)}
-                        onCameraClick={() => cameraInputRef.current.click()}
-                        onGalleryClick={() => galleryInputRef.current.click()}
-                    />
-                    {initialData && initialData.id && (
-                        <ShareModal 
-                            isOpen={isShareModalOpen} 
-                            onClose={() => setIsShareModalOpen(false)} 
-                            patientId={initialData.id} 
-                        />
-                    )}
-                    
-                    {/* Input files ocultos para disparar la acción */}
-                    <input type="file" ref={galleryInputRef} accept="image/*" className="hidden" onChange={handleImageUpload} />
-                    <input type="file" ref={cameraInputRef} accept="image/*" capture="camera" className="hidden" onChange={handleImageUpload} />
-                    
-
-                    <form className="space-y-6 animate-fade-in" onSubmit={handleSubmit}>
-                        
-                        {/* Sección 1: Datos Filiatorios (No modificable por consulta) */}
-                        <Card className="border-l-4 border-l-sky-500">
-                            <div className="flex items-center gap-2 mb-4 text-sky-800">
-                                <User size={20} />
-                                <h3 className="font-bold text-lg">Datos del Paciente</h3>
-                                {initialData && initialData.id && (
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => setIsShareModalOpen(true)} 
-                                        className="text-xs py-1 px-2 ml-auto"
-                                    >
-                                        <Share2 size={16} /> Compartir Ficha
-                                    </Button>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre</label>
-                                    <input required type="text" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                        value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Apellido</label>
-                                    <input required type="text" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                        value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">DNI</label>
-                                    <input required type="number" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                        value={formData.dni} onChange={e => handleChange('dni', e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha Nacimiento</label>
-                                    <input required type="date" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                        value={formData.birthDate} onChange={e => handleChange('birthDate', e.target.value)} />
-                                    {ageString && <p className="text-right text-xs text-sky-600 font-bold mt-1">{ageString}</p>}
-                                </div>
-                            </div>
-                        </Card>
-
-                        {/* Sección 2: Antecedentes Clínicos (No modificable por consulta, pero editable) */}
-                        <Card>
-                            <div className="flex items-center gap-2 mb-4 text-sky-800">
-                                <Activity size={20} />
-                                <h3 className="font-bold text-lg">Antecedentes Clínicos</h3>
-                            </div>
-                            <div className="space-y-4">
-                                <TagInput 
-                                    label="Antecedentes Neonatales" 
-                                    placeholder="Buscar o agregar (Ej. Ictericia)..."
-                                    options={predefinedNeonatal}
-                                    value={formData.neonatalHistory}
-                                    onChange={val => handleChange('neonatalHistory', val)}
-                                />
-                                <TagInput 
-                                    label="Antecedentes Patológicos" 
-                                    placeholder="Buscar o agregar (Ej. Asma)..."
-                                    options={predefinedPathological}
-                                    value={formData.pathologicalHistory}
-                                    onChange={val => handleChange('pathologicalHistory', val)}
-                                />
-                            </div>
-                        </Card>
-
-                        {/* MODIFICACIÓN 2 & 3: Nueva Consulta Actual y Historial */}
-                        <Card>
-                            <div className="flex items-center gap-2 mb-4 text-sky-800">
-                                <Stethoscope size={20} />
-                                {/* MODIFICACIÓN 3: Título sin "Antropometría" */}
-                                <h3 className="font-bold text-lg">Consulta Actual</h3>
-                            </div>
-                            
-                            {/* Formulario de NUEVA Consulta */}
-                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-6">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="font-semibold text-slate-700">Registrar Nueva Consulta</h4>
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <Calendar size={16} className="text-sky-500" />
-                                        <input 
-                                            type="date" 
-                                            className="p-1 border rounded text-sm bg-white outline-none" 
-                                            value={newConsultation.date} 
-                                            onChange={e => handleNewConsultationChange('date', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                
-                                {/* NUEVO CAMPO: Motivo de Consulta */}
-                                <div className="mb-4">
-                                    <TagInput 
-                                        label="Motivo de Consulta" 
-                                        placeholder="Buscar o agregar motivo (Ej. Fiebre)..."
-                                        options={predefinedConsultationReasons}
-                                        value={newConsultation.motive}
-                                        onChange={val => handleNewConsultationChange('motive', val)}
-                                    />
-                                </div>
-                                
-                                {/* NUEVO: Antropometría Header en Consulta Actual */}
-                                <h6 className="text-xs font-bold text-slate-600 mb-2 mt-4 text-center border-t pt-2">Antropometría</h6>
-
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1 text-center">Peso (kg)</label>
-                                        <input type="number" step="0.01" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
-                                            value={newConsultation.weight} onChange={e => handleNewConsultationChange('weight', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1 text-center">Talla (cm)</label>
-                                        <input type="number" step="0.1" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
-                                            value={newConsultation.height} onChange={e => handleNewConsultationChange('height', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-1 text-center">P. Cefálico</label>
-                                        <input type="number" step="0.1" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
-                                            value={newConsultation.headCircumference} onChange={e => handleNewConsultationChange('headCircumference', e.target.value)} />
-                                    </div>
-                                </div>
-                                <div className="mt-4">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notas de Evolución</label>
-                                    <textarea className="w-full p-3 border rounded-lg h-32 resize-none focus:ring-2 focus:ring-sky-200 outline-none" 
-                                        placeholder="Escriba aquí los detalles de la consulta..."
-                                        value={newConsultation.notes} onChange={e => handleNewConsultationChange('notes', e.target.value)}
-                                    ></textarea>
-                                </div>
-                            </div>
-                            
-                            {/* Historial de Consultas (Consultations History) */}
-                            <h4 className="font-semibold text-slate-700 mt-4 border-t pt-4">Historial ({formData.consultations.length} consultas)</h4>
-                            <div className="space-y-3 mt-3 max-h-80 overflow-y-auto hide-scrollbar">
-                                {formData.consultations.length === 0 ? (
-                                    <p className="text-sm text-slate-400 italic">No hay consultas anteriores registradas.</p>
-                                ) : (
-                                    formData.consultations.map((consultation, index) => {
-                                        const ageAtConsultation = calculateAgeAtDate(formData.birthDate, consultation.date);
-                                        return (
-                                            <div key={consultation.id || index} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm animate-fade-in-up">
-                                                <div className="flex justify-between items-start mb-2 pb-1 border-b border-slate-200">
-                                                    <h5 className="text-sm font-bold text-sky-600">Consulta {formatDate(consultation.date)}</h5>
-                                                    {/* Mostrar la edad en la fecha de consulta */}
-                                                    <span className="text-xs font-semibold text-slate-600 bg-sky-100 px-2 py-0.5 rounded-full">
-                                                        Edad: {ageAtConsultation}
-                                                    </span>
-                                                </div>
-                                                
-                                                {/* Mostrar Motivo de Consulta */}
-                                                {(consultation.motive && consultation.motive.length > 0) && (
-                                                    <div className="mb-2">
-                                                        <h6 className="text-xs font-bold text-slate-600 mb-1">Motivo</h6>
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {consultation.motive.map((m, i) => (
-                                                                <span key={i} className="bg-sky-50 text-sky-700 text-xs px-2 py-0.5 rounded-md">
-                                                                    {m}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Antropometría Header en Historial */}
-                                                <h6 className="text-xs font-bold text-slate-600 mb-1 mt-2">Antropometría</h6>
-                                                
-                                                <div className="grid grid-cols-3 gap-2 text-xs text-slate-700 mb-2">
-                                                    <div className="font-mono bg-slate-50 p-1 rounded border text-center">
-                                                        <strong>{consultation.weight}</strong> kg
-                                                    </div>
-                                                    <div className="font-mono bg-slate-50 p-1 rounded border text-center">
-                                                        <strong>{consultation.height}</strong> cm
-                                                    </div>
-                                                    <div className="font-mono bg-slate-50 p-1 rounded border text-center">
-                                                        <strong>{consultation.headCircumference}</strong> P.C.
-                                                    </div>
-                                                </div>
-                                                <p className="text-sm italic text-slate-600 whitespace-pre-wrap">{consultation.notes || 'Sin notas de evolución.'}</p>
-                                            </div>
-                                        )
-                                    })
-                                )}
-                            </div>
-                        </Card>
-
-                        {/* Sección 4: Pendientes */}
-                        <Card className="bg-amber-50 border-amber-100">
-                            <div className="flex items-center gap-2 mb-4 text-amber-700">
-                                <AlertCircle size={20} />
-                                <h3 className="font-bold text-lg">Pendientes</h3>
-                            </div>
-                            <div className="flex gap-2 mb-3">
-                                <input 
-                                    type="text" 
-                                    className="flex-1 p-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-200 bg-white"
-                                    placeholder="Nuevo pendiente (Ej. Traer radiografía)..."
-                                    value={newPending}
-                                    onChange={e => setNewPending(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addPending())}
-                                />
-                                <Button variant="secondary" onClick={addPending} className="bg-amber-200 text-amber-800 hover:bg-amber-300">
-                                    <Plus size={18} />
-                                </Button>
-                            </div>
-                            <ul className="space-y-2">
-                                {formData.pendingItems.map(item => (
-                                    <li key={item.id} className="flex items-center justify-between p-2 bg-white rounded border border-amber-100 shadow-sm animate-fade-in-up">
-                                        <span className="text-sm text-slate-700">{item.text}</span>
-                                        <button 
-                                            type="button"
-                                            onClick={() => removePending(item.id)} 
-                                            className="text-emerald-500 hover:text-emerald-700 p-1" 
-                                            title="Marcar como cumplido"
-                                        >
-                                            <CheckCircle size={18} />
-                                        </button>
-                                    </li>
-                                ))}
-                                {formData.pendingItems.length === 0 && <p className="text-xs text-amber-400 italic">No hay pendientes activos.</p>}
-                            </ul>
-                        </Card>
-
-                        {/* Sección 5: Archivos Adjuntos */}
-                        <Card>
-                            <div className="flex items-center justify-between mb-4 text-slate-700">
-                                <div className="flex items-center gap-2">
-                                    <FileText size={20} />
-                                    <h3 className="font-bold text-lg">Archivos / Fichas Escaneadas</h3>
-                                </div>
-                                {/* MODIFICACIÓN 4: Botón que abre el modal de selección */}
-                                <Button onClick={() => setIsUploadModalOpen(true)} variant="secondary" className="text-sm">
-                                    <Upload size={16} /> Subir Archivo
-                                </Button>
-                            </div>
-                            
-                            {formData.images.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {formData.images.map((img, idx) => (
-                                        // FIX 2: onClick en el contenedor para que la miniatura sea totalmente cliqueable
-                                        <div 
-                                            key={img.id} 
-                                            className="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-200 cursor-pointer" 
-                                            onClick={() => setModalImageSrc(img.src)} 
-                                        >
-                                            <img 
-                                                src={img.src} 
-                                                alt={`Documento escaneado ${idx + 1}`} 
-                                                className="w-full h-full object-contain transition-opacity"
-                                            />
-                                            {/* DEBUG: Añadir elemento visual si el src no está presente (ayuda a identificar si el problema es de datos o de renderizado) */}
-                                            {!img.src && (
-                                                <div className="absolute inset-0 flex items-center justify-center bg-red-100/70 text-red-600 text-xs text-center p-1">
-                                                    Error de carga (Base64 no encontrado)
-                                                </div>
-                                            )}
-                                            {/* FIX 2: El botón de borrado ahora usa e.stopPropagation() para no disparar el modal al borrar */}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <button 
-                                                    type="button" 
-                                                    onClick={(e) => { e.stopPropagation(); removeImage(img.id); }}
-                                                    className="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition-transform"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                            <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center truncate">
-                                                {img.date}
-                                            </span>
-                                        </div>
-                                    ) 
-                                )}
-                                </div>
-                            ) : (
-                                <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center text-slate-400 text-sm">
-                                    No hay imágenes adjuntas.
-                                </div>
-                            )}
-                        </Card>
-
-                        {/* Actions */}
-                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
-                            <Button variant="danger" onClick={onCancel} className="flex-1 md:flex-none">
-                                Cancelar
-                            </Button>
-                            <Button type="submit" className="flex-1 md:w-48">
-                                <Save size={18} /> Guardar Historia
-                            </Button>
+                <form className="space-y-6 animate-fade-in" onSubmit={handleSubmit}>
+                    <Card className="border-l-4 border-l-sky-500">
+                        <div className="flex items-center gap-2 mb-4 text-sky-800">
+                            <User size={20} />
+                            <h3 className="font-bold text-lg">Datos del Paciente</h3>
                         </div>
-                    </form>
-                </>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Nombre</label>
+                            <input required className="w-full p-2 border rounded-lg" value={formData.firstName} onChange={e => setFormData(p=>({...p, firstName: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Apellido</label>
+                            <input required className="w-full p-2 border rounded-lg" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">DNI</label>
+                            <input required type="number" className="w-full p-2 border rounded-lg" value={formData.dni} onChange={e => setFormData(p=>({...p, dni: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Teléfono (Opcional)</label>
+                            <input type="tel" placeholder="Ej: 1122334455" className="w-full p-2 border rounded-lg" value={formData.phone || ''} onChange={e => setFormData(p=>({...p, phone: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Fecha Nacimiento</label>
+                            <input required type="date" className="w-full p-2 border rounded-lg" value={formData.birthDate} onChange={e => setFormData(p=>({...p, birthDate: e.target.value}))} /></div>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <div className="flex items-center gap-2 mb-4 text-sky-800"><Activity size={20} /><h3 className="font-bold text-lg">Antecedentes</h3></div>
+                        <div className="space-y-4">
+                            <TagInput label="Neonatales" options={options.neonatal} value={formData.neonatalHistory} onChange={v => setFormData(p=>({...p, neonatalHistory: v}))} />
+                            <TagInput label="Patológicos" options={options.pathological} value={formData.pathologicalHistory} onChange={v => setFormData(p=>({...p, pathologicalHistory: v}))} />
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <div className="flex items-center gap-2 mb-4 text-sky-800"><Stethoscope size={20} /><h3 className="font-bold text-lg">Consulta Actual</h3></div>
+                        <div className="bg-slate-50 p-3 rounded-lg border space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-bold text-slate-600">Fecha de Consulta</span>
+                                <input type="date" className="p-1 border rounded text-sm" value={newConsultation.date} onChange={e => setNewConsultation(p=>({...p, date:e.target.value}))} />
+                            </div>
+                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setNewConsultation(p=>({...p, motive:v}))} />
+                            <div className="grid grid-cols-3 gap-3">
+                                <input type="number" step="0.01" placeholder="Peso" className="p-2 border rounded-lg text-center" value={newConsultation.weight} onChange={e => setNewConsultation(p=>({...p, weight:e.target.value}))} />
+                                <input type="number" step="0.1" placeholder="Talla" className="p-2 border rounded-lg text-center" value={newConsultation.height} onChange={e => setNewConsultation(p=>({...p, height:e.target.value}))} />
+                                <input type="number" step="0.1" placeholder="P.C." className="p-2 border rounded-lg text-center" value={newConsultation.headCircumference} onChange={e => setNewConsultation(p=>({...p, headCircumference:e.target.value}))} />
+                            </div>
+                            <textarea className="w-full p-3 border rounded-lg h-24 text-sm" placeholder="Evolución clínica..." value={newConsultation.notes} onChange={e => setNewConsultation(p=>({...p, notes:e.target.value}))}></textarea>
+                        </div>
+
+                        <div className="mt-6 space-y-3">
+                            <h4 className="font-bold text-slate-700 text-sm">Historial</h4>
+                            {(formData.consultations || []).map(c => (
+                                <div key={c.id} className="p-3 border rounded-lg text-xs bg-white shadow-sm">
+                                    <div className="flex justify-between font-bold text-sky-600 mb-1">
+                                        <span>{formatDate(c.date)}</span>
+                                        <span>Edad: {calculateAgeAtDate(formData.birthDate, c.date)}</span>
+                                    </div>
+                                    <p className="font-semibold text-slate-700">M: {c.motive?.join(', ') || 'N/A'}</p>
+                                    <p className="text-slate-500">P: {c.weight}kg | T: {c.height}cm | PC: {c.headCircumference}</p>
+                                    <p className="mt-1 italic">{c.notes}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+
+                    <Card className="bg-amber-50">
+                        <div className="flex items-center gap-2 mb-4 text-amber-700"><AlertCircle size={20} /><h3 className="font-bold text-lg">Pendientes</h3></div>
+                        <div className="flex gap-2">
+                            <input className="flex-1 p-2 border rounded-lg" placeholder="Nuevo pendiente..." value={newPending} onChange={e=>setNewPending(e.target.value)} />
+                            <Button variant="secondary" onClick={()=>{ if(newPending.trim()){ setFormData(p=>({...p, pendingItems:[...(p.pendingItems || []), {id:Date.now(), text:newPending}]})); setNewPending(""); } }}><Plus size={18}/></Button>
+                        </div>
+                        <ul className="mt-3 space-y-2">
+                            {(formData.pendingItems || []).map(i => (
+                                <li key={i.id} className="flex justify-between items-center p-2 bg-white rounded border border-amber-200">
+                                    <span className="text-sm">{i.text}</span>
+                                    <button type="button" onClick={()=>setFormData(p=>({...p, pendingItems:p.pendingItems.filter(x=>x.id!==i.id)}))} className="text-emerald-500"><CheckCircle size={18}/></button>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+
+                    <Card>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg text-slate-700">Archivos</h3>
+                            <Button variant="secondary" onClick={()=>galleryInputRef.current.click()}><Upload size={16}/> Subir</Button>
+                        </div>
+                        <input type="file" ref={galleryInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                        <div className="grid grid-cols-4 gap-2">
+                            {(formData.images || []).map(img => (
+                                <div key={img.id} className="relative aspect-square border rounded-lg overflow-hidden bg-slate-100 cursor-pointer" onClick={()=>setModalImageSrc(img.src)}>
+                                    <img src={img.src} className="w-full h-full object-cover" />
+                                    <button type="button" onClick={(e)=>{e.stopPropagation(); setFormData(p=>({...p, images:p.images.filter(x=>x.id!==img.id)}))}} className="absolute top-1 right-1 bg-white/80 rounded-full p-1 text-rose-500"><Trash2 size={12}/></button>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+
+                    {modalImageSrc && <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={()=>setModalImageSrc(null)}>
+                        <img src={modalImageSrc} className="max-w-full max-h-full object-contain" />
+                        <button className="absolute top-4 right-4 text-white p-2 bg-white/10 rounded-full" onClick={()=>setModalImageSrc(null)}><X size={32}/></button>
+                    </div>}
+
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
+                        <Button variant="danger" onClick={onCancel} className="flex-1">Cancelar</Button>
+                        <Button type="submit" className="flex-1 md:w-48"><Save size={18} /> Guardar</Button>
+                    </div>
+                </form>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(
-            <ErrorBoundary>
-                <App />
-            </ErrorBoundary>
-        );
+        root.render(<App />);
     </script>
 </body>
-</html> 
+</html>
