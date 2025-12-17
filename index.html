@@ -348,7 +348,8 @@
                         id: doc.id,
                         ...doc.data()
                     }));
-                    // Sort locally by update time (descending)
+                    // DEBUG: Log para verificar la recuperación de datos de pacientes
+                    console.log("Pacientes recuperados:", loadedPatients); 
                     loadedPatients.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
                     setPatients(loadedPatients);
                     setLoading(false);
@@ -594,6 +595,8 @@
                         date: new Date().toISOString().split('T')[0],
                         weight: '', height: '', headCircumference: '', notes: ''
                     });
+                    // DEBUG: Muestra los datos de la historia clínica cargada
+                    console.log("Historia Clínica cargada:", initialData.id, initialData.firstName, initialData.consultations);
                 }
             }, [initialData]);
 
@@ -628,6 +631,9 @@
                     // Actualizar formData con la nueva consulta
                     handleChange('consultations', updatedConsultations);
                     
+                    // DEBUG: Confirma que se añadió la nueva consulta al estado local
+                    console.log("Nueva consulta añadida (local):", consultationToAdd);
+
                     // Limpiar la nueva consulta después de agregar
                     setNewConsultation({
                         date: new Date().toISOString().split('T')[0],
@@ -724,10 +730,12 @@
                         >
                             <X size={28} />
                         </button>
+                        {/* MEJORA VISUALIZACIÓN: Asegura que la imagen se ajuste al tamaño de la pantalla/móvil */}
                         <img 
                             src={src} 
                             alt="Documento escaneado a pantalla completa" 
                             className="max-w-full max-h-full object-contain shadow-2xl"
+                            style={{ maxWidth: '95vw', maxHeight: '95vh' }}
                             onClick={(e) => e.stopPropagation()} // Evitar cerrar al hacer clic en la imagen
                         />
                     </div>
@@ -742,6 +750,7 @@
                     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                         <Card className="p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-xl font-bold mb-4 text-slate-800">Subir Archivo</h3>
+                            <p className="text-sm text-slate-600 mb-4">La imagen será comprimida para facilitar la carga y el almacenamiento. Se recomienda tomar fotos claras de documentos.</p>
                             <div className="space-y-4">
                                 <Button 
                                     className="w-full bg-sky-100 text-sky-700 hover:bg-sky-200" 
@@ -971,10 +980,16 @@
                                             {/* Nuevo: onClick para abrir el modal */}
                                             <img 
                                                 src={img.src} 
-                                                alt="Documento escaneado" 
+                                                alt={`Documento escaneado ${idx + 1}`} 
                                                 className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
                                                 onClick={() => setModalImageSrc(img.src)}
                                             />
+                                            {/* DEBUG: Añadir elemento visual si el src no está presente (ayuda a identificar si el problema es de datos o de renderizado) */}
+                                            {!img.src && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-red-100/70 text-red-600 text-xs text-center p-1">
+                                                    Error de carga (Base64 no encontrado)
+                                                </div>
+                                            )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <button 
                                                     type="button" 
@@ -988,7 +1003,7 @@
                                                 {img.date}
                                             </span>
                                         </div>
-                                    ) /* CORRECCIÓN: Se añade el corchete de cierre de la función de flecha del map */
+                                    ) 
                                 )}
                                 </div>
                             ) : (
