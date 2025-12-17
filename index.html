@@ -101,19 +101,37 @@
 
 
         // --- Helper Functions ---
+        // MODIFICACIÓN: Cálculo de edad mejorado para incluir días si es menor a un mes
         function calculateAge(birthDate) {
             if (!birthDate) return "";
             const today = new Date();
             const birth = new Date(birthDate);
+            
             let years = today.getFullYear() - birth.getFullYear();
             let months = today.getMonth() - birth.getMonth();
-            if (months < 0 || (months === 0 && today.getDate() < birth.getDate())) {
+            let days = today.getDate() - birth.getDate();
+
+            if (days < 0) {
+                months--;
+                // Obtener días del mes anterior
+                days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+            }
+
+            if (months < 0) {
                 years--;
                 months += 12;
             }
-            if(years === 0) return `${months} meses`;
-            if(months === 0) return `${years} años`;
-            return `${years} años, ${months} meses`;
+
+            if (years >= 1) {
+                return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`;
+            }
+            if (months >= 1) {
+                return `${months} mes${months !== 1 ? 'es' : ''}${days > 0 ? `, ${days} día${days !== 1 ? 's' : ''}` : ''}`;
+            }
+            if (days >= 0) {
+                return `${days} día${days !== 1 ? 's' : ''}`;
+            }
+            return "Fecha futura";
         }
         
         function calculateAgeAtDate(birthDateStr, consultationDateMs) {
@@ -517,7 +535,7 @@
                             <input required className="w-full p-2 border rounded-lg" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} /></div>
                             <div><label className="text-xs font-bold text-slate-500 uppercase">DNI</label>
                             <input required type="number" className="w-full p-2 border rounded-lg" value={formData.dni} onChange={e => setFormData(p=>({...p, dni: e.target.value}))} /></div>
-                            <div><label className="text-xs font-bold text-slate-500 uppercase">Teléfono</label>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Teléfono (Opcional)</label>
                             <input type="tel" placeholder="Ej: 1122334455" className="w-full p-2 border rounded-lg" value={formData.phone || ''} onChange={e => setFormData(p=>({...p, phone: e.target.value}))} /></div>
                             <div><label className="text-xs font-bold text-slate-500 uppercase">Fecha Nacimiento</label>
                             <input required type="date" className="w-full p-2 border rounded-lg" value={formData.birthDate} onChange={e => setFormData(p=>({...p, birthDate: e.target.value}))} /></div>
