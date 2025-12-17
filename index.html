@@ -124,6 +124,8 @@
         const Baby = (props) => <Icon {...props}><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></Icon>;
         const Stethoscope = (props) => <Icon {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></Icon>;
         const ChevronDown = (props) => <Icon {...props}><polyline points="6 9 12 15 18 9"/></Icon>;
+        const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
+        const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
 
 
@@ -144,7 +146,7 @@
             return `${years} años, ${months} meses`;
         }
         
-        // NUEVA FUNCIÓN: Calcula la edad en una fecha específica
+        // Función para calcular la edad en una fecha específica
         function calculateAgeAtDate(birthDateStr, consultationDateMs) {
             if (!birthDateStr || !consultationDateMs) return "";
             
@@ -185,6 +187,22 @@
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
             return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
         }
+        
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                return true;
+            } catch (err) {
+                console.error('Error al copiar al portapapeles:', err);
+                return false;
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
 
 
         // --- Error Boundary ---
@@ -215,6 +233,28 @@
                 return this.props.children;
             }
         }
+        
+        // --- Modal Base Component ---
+        const Modal = ({ children, isOpen, onClose, title }) => {
+            if (!isOpen) return null;
+            
+            return (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" 
+                    onClick={onClose}
+                >
+                    <Card className="p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-start border-b pb-3 mb-4">
+                            <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        {children}
+                    </Card>
+                </div>
+            );
+        };
 
         // --- Utility Components ---
 
@@ -335,6 +375,9 @@
 
         const predefinedNeonatal = ["Prematuro", "Bajo peso al nacer", "Ictericia", "Distrés respiratorio", "Sano"];
         const predefinedPathological = ["Asma", "Alergias", "Diabetes", "Otitis recurrente", "Convulsiones", "Celiaquía"];
+        // NUEVO: Opciones predefinidas para Motivo de Consulta
+        const predefinedConsultationReasons = ["Control de Niño Sano", "Fiebre", "Tos", "Dolor de Oído", "Erupción Cutánea", "Vacunación", "Revisión Post-enfermedad"];
+
 
         const App = () => {
             const [user, setUser] = useState(null);
@@ -593,7 +636,6 @@
         // --- Patient Form Component ---
 
         const PatientForm = ({ initialData, onSave, onCancel }) => {
-            // MODIFICACIÓN 2: Se eliminan campos de consulta individual y se añade 'consultations'
             const [formData, setFormData] = useState({
                 firstName: '', lastName: '', dni: '', birthDate: '',
                 neonatalHistory: [], pathologicalHistory: [],
@@ -603,13 +645,16 @@
             // Nuevo estado para la consulta actual que se está registrando
             const [newConsultation, setNewConsultation] = useState({
                 date: new Date().toISOString().split('T')[0], // Fecha de hoy por defecto
+                motive: [], // NUEVO: Motivo de consulta (tags)
                 weight: '', height: '', headCircumference: '',
                 notes: ''
             });
             const [ageString, setAgeString] = useState("");
             const [newPending, setNewPending] = useState("");
             const [modalImageSrc, setModalImageSrc] = useState(null); 
-            const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // MODIFICACIÓN 4: Estado del modal de subida
+            const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); 
+            // NUEVO: Estado para el modal de compartir
+            const [isShareModalOpen, setIsShareModalOpen] = useState(false); 
 
             // Referencias para los inputs de archivo
             const cameraInputRef = useRef(null);
@@ -629,6 +674,7 @@
                     // Limpiar la nueva consulta si se está editando una historia existente, para forzar un nuevo registro
                     setNewConsultation({
                         date: new Date().toISOString().split('T')[0],
+                        motive: [], // Inicializar motivo
                         weight: '', height: '', headCircumference: '', notes: ''
                     });
                     // DEBUG: Muestra los datos de la historia clínica cargada
@@ -653,10 +699,10 @@
 
             // FIX 1: Modificado para devolver la lista actualizada y limpiar el estado de 'newConsultation'
             const handleSaveCurrentConsultation = () => {
-                const { weight, height, headCircumference, notes } = newConsultation;
+                const { weight, height, headCircumference, notes, motive } = newConsultation;
                 
                 // Si al menos un campo de la consulta está lleno, se registra
-                if (weight || height || headCircumference || notes) {
+                if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
                     const consultationToAdd = {
                         ...newConsultation,
                         date: new Date(newConsultation.date).getTime(), // Guardar como timestamp para ordenar
@@ -672,6 +718,7 @@
                     // Limpiar la nueva consulta después de agregar
                     setNewConsultation({
                         date: new Date().toISOString().split('T')[0],
+                        motive: [],
                         weight: '', height: '', headCircumference: '', notes: ''
                     });
                     
@@ -797,7 +844,7 @@
                     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                         <Card className="p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-xl font-bold mb-4 text-slate-800">Subir Archivo</h3>
-                            <p className="text-sm text-slate-600 mb-4">La imagen será comprimida para facilitar la carga y el almacenamiento. Se recomienda tomar fotos claras de documentos.</p>
+                            <p className="text-sm text-slate-600 mb-4">La imagen será comprimida (Max 800px / Calidad 70%) para asegurar la legibilidad y un almacenamiento eficiente.</p>
                             <div className="space-y-4">
                                 <Button 
                                     className="w-full bg-sky-100 text-sky-700 hover:bg-sky-200" 
@@ -819,6 +866,55 @@
                     </div>
                 );
             };
+            
+            // NUEVO: Componente Modal para Compartir Ficha
+            const ShareModal = ({ isOpen, onClose, patientId }) => {
+                const [copied, setCopied] = useState(false);
+                const shareLink = `[URL_DE_LA_APP]/patient/${patientId}`;
+
+                const handleCopy = () => {
+                    if (copyToClipboard(patientId)) {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                    }
+                };
+                
+                const handleCopyLink = () => {
+                    if (copyToClipboard(shareLink)) {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                    }
+                };
+
+                return (
+                    <Modal isOpen={isOpen} onClose={onClose} title="Compartir Ficha">
+                        <p className="text-sm text-slate-600 mb-4">
+                            Comparta el ID de esta ficha para que otros usuarios con acceso a la base de datos puedan verla o editarla.
+                        </p>
+                        
+                        <div className="mb-4">
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">ID del Paciente (Para Colaboración)</label>
+                            <div className="flex bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                <div className="p-3 flex-1 text-sm font-mono truncate text-slate-700">
+                                    {patientId || 'Cargando ID...'}
+                                </div>
+                                <Button 
+                                    variant="secondary" 
+                                    onClick={handleCopy} 
+                                    className={`flex-shrink-0 rounded-l-none ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-200 hover:bg-slate-300'}`}
+                                >
+                                    {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
+                                    {copied ? '¡Copiado!' : 'Copiar ID'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="text-right">
+                             <Button variant="primary" onClick={onClose}>Cerrar</Button>
+                        </div>
+                    </Modal>
+                );
+            };
 
 
             return (
@@ -829,6 +925,13 @@
                         onCameraClick={() => cameraInputRef.current.click()}
                         onGalleryClick={() => galleryInputRef.current.click()}
                     />
+                    {initialData && initialData.id && (
+                        <ShareModal 
+                            isOpen={isShareModalOpen} 
+                            onClose={() => setIsShareModalOpen(false)} 
+                            patientId={initialData.id} 
+                        />
+                    )}
                     
                     {/* Input files ocultos para disparar la acción */}
                     <input type="file" ref={galleryInputRef} accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -842,6 +945,15 @@
                             <div className="flex items-center gap-2 mb-4 text-sky-800">
                                 <User size={20} />
                                 <h3 className="font-bold text-lg">Datos del Paciente</h3>
+                                {initialData && initialData.id && (
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => setIsShareModalOpen(true)} 
+                                        className="text-xs py-1 px-2 ml-auto"
+                                    >
+                                        <Share2 size={16} /> Compartir Ficha
+                                    </Button>
+                                )}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -915,6 +1027,17 @@
                                     </div>
                                 </div>
                                 
+                                {/* NUEVO CAMPO: Motivo de Consulta */}
+                                <div className="mb-4">
+                                    <TagInput 
+                                        label="Motivo de Consulta" 
+                                        placeholder="Buscar o agregar motivo (Ej. Fiebre)..."
+                                        options={predefinedConsultationReasons}
+                                        value={newConsultation.motive}
+                                        onChange={val => handleNewConsultationChange('motive', val)}
+                                    />
+                                </div>
+                                
                                 {/* NUEVO: Antropometría Header en Consulta Actual */}
                                 <h6 className="text-xs font-bold text-slate-600 mb-2 mt-4 text-center border-t pt-2">Antropometría</h6>
 
@@ -953,26 +1076,40 @@
                                     formData.consultations.map((consultation, index) => {
                                         const ageAtConsultation = calculateAgeAtDate(formData.birthDate, consultation.date);
                                         return (
-                                            <div key={consultation.id || index} className="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm animate-fade-in-up">
+                                            <div key={consultation.id || index} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm animate-fade-in-up">
                                                 <div className="flex justify-between items-start mb-2 pb-1 border-b border-slate-200">
                                                     <h5 className="text-sm font-bold text-sky-600">Consulta {formatDate(consultation.date)}</h5>
-                                                    {/* NUEVO: Mostrar la edad en la fecha de consulta */}
+                                                    {/* Mostrar la edad en la fecha de consulta */}
                                                     <span className="text-xs font-semibold text-slate-600 bg-sky-100 px-2 py-0.5 rounded-full">
                                                         Edad: {ageAtConsultation}
                                                     </span>
                                                 </div>
                                                 
-                                                {/* NUEVO: Antropometría Header en Historial */}
-                                                <h6 className="text-xs font-bold text-slate-600 mb-1">Antropometría</h6>
+                                                {/* Mostrar Motivo de Consulta */}
+                                                {(consultation.motive && consultation.motive.length > 0) && (
+                                                    <div className="mb-2">
+                                                        <h6 className="text-xs font-bold text-slate-600 mb-1">Motivo</h6>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {consultation.motive.map((m, i) => (
+                                                                <span key={i} className="bg-sky-50 text-sky-700 text-xs px-2 py-0.5 rounded-md">
+                                                                    {m}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Antropometría Header en Historial */}
+                                                <h6 className="text-xs font-bold text-slate-600 mb-1 mt-2">Antropometría</h6>
                                                 
                                                 <div className="grid grid-cols-3 gap-2 text-xs text-slate-700 mb-2">
-                                                    <div className="font-mono bg-white p-1 rounded border text-center">
+                                                    <div className="font-mono bg-slate-50 p-1 rounded border text-center">
                                                         <strong>{consultation.weight}</strong> kg
                                                     </div>
-                                                    <div className="font-mono bg-white p-1 rounded border text-center">
+                                                    <div className="font-mono bg-slate-50 p-1 rounded border text-center">
                                                         <strong>{consultation.height}</strong> cm
                                                     </div>
-                                                    <div className="font-mono bg-white p-1 rounded border text-center">
+                                                    <div className="font-mono bg-slate-50 p-1 rounded border text-center">
                                                         <strong>{consultation.headCircumference}</strong> P.C.
                                                     </div>
                                                 </div>
