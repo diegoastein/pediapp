@@ -517,7 +517,7 @@
                             <input required className="w-full p-2 border rounded-lg" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} /></div>
                             <div><label className="text-xs font-bold text-slate-500 uppercase">DNI</label>
                             <input required type="number" className="w-full p-2 border rounded-lg" value={formData.dni} onChange={e => setFormData(p=>({...p, dni: e.target.value}))} /></div>
-                            <div><label className="text-xs font-bold text-slate-500 uppercase">Teléfono (Opcional)</label>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Teléfono</label>
                             <input type="tel" placeholder="Ej: 1122334455" className="w-full p-2 border rounded-lg" value={formData.phone || ''} onChange={e => setFormData(p=>({...p, phone: e.target.value}))} /></div>
                             <div><label className="text-xs font-bold text-slate-500 uppercase">Fecha Nacimiento</label>
                             <input required type="date" className="w-full p-2 border rounded-lg" value={formData.birthDate} onChange={e => setFormData(p=>({...p, birthDate: e.target.value}))} /></div>
