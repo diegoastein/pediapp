@@ -251,6 +251,29 @@
             );
         };
 
+        // --- Rules Guide Component ---
+        const RulesGuide = () => {
+            const rulesPath = `/artifacts/historia-clinica-v1/public/data/{documentId}`;
+            const ruleCode = `allow read, write: if request.auth != null;`;
+            return (
+                <div className="p-4 bg-orange-100 border border-orange-300 rounded-xl mt-4 text-sm space-y-2">
+                    <p className="font-bold text-orange-800 flex items-center gap-2">
+                        <AlertCircle size={16} /> ¡ATENCIÓN: REGLAS DE SEGURIDAD REQUERIDAS!
+                    </p>
+                    <p className="text-slate-700">Para que la sincronización (acceso compartido) funcione, necesitas actualizar tus Reglas de Seguridad de Firestore en la Consola de Firebase.
+                    </p>
+                    <p className="text-slate-700 font-semibold">Regla a establecer:</p>
+                    <p className="text-slate-700">Asegúrate de que la siguiente regla sea aplicada a la ruta de la colección de pacientes:</p>
+                    
+                    <div className="bg-orange-200 p-3 rounded-lg font-mono text-xs overflow-x-auto">
+                        <code className="block text-orange-900 break-all mb-2">match /artifacts/{appId}/public/data/patients/{documentId}</code>
+                        <code className="block text-orange-900 break-all">allow read, write: if request.auth != null;</code>
+                    </div>
+                </div>
+            );
+        };
+
+
         // --- Main App Logic ---
 
         const predefinedNeonatal = ["Prematuro", "Bajo peso al nacer", "Ictericia", "Distrés respiratorio", "Sano"];
@@ -297,9 +320,7 @@
             useEffect(() => {
                 if (!user || !db) return;
                 
-                // CAMBIO A RUTA PÚBLICA PARA PERMITIR SINCRONIZACIÓN ENTRE DISPOSITIVOS
-                // Antes: 'users', user.uid, 'patients' (Privado por dispositivo)
-                // Ahora: 'public', 'data', 'patients' (Compartido por todos los dispositivos con la misma config)
+                // RUTA PÚBLICA PARA PERMITIR SINCRONIZACIÓN ENTRE DISPOSITIVOS
                 const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
                 
                 const unsubscribe = onSnapshot(colRef, (snapshot) => {
@@ -307,16 +328,21 @@
                         id: doc.id,
                         ...doc.data()
                     }));
-                    // Sort locally
+                    // Sort locally by update time (descending)
                     loadedPatients.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
                     setPatients(loadedPatients);
                     setLoading(false);
+                    // Clear error if data loads successfully after initial error
+                    if (errorMsg && errorMsg.includes('Permisos')) {
+                        setErrorMsg(null);
+                    }
                 }, (error) => {
                     console.error("Firestore error:", error);
                     if (error.code === 'permission-denied') {
-                        setErrorMsg("Permiso denegado. Verifica las reglas de Firestore.");
+                        // MENSAJE DE ERROR MÁS ESPECÍFICO
+                        setErrorMsg("Error de Permisos (403): Parece que las Reglas de Seguridad de Firestore no permiten acceso a la colección pública. ¡Necesitas actualizar tus reglas!");
                     } else {
-                        setErrorMsg("Error al cargar pacientes.");
+                        setErrorMsg("Error al cargar pacientes: " + error.message);
                     }
                     setLoading(false);
                 });
@@ -329,7 +355,7 @@
                 if (!user || !db) return;
                 setLoading(true);
                 try {
-                    // CAMBIO A RUTA PÚBLICA PARA GUARDAR
+                    // RUTA PÚBLICA PARA GUARDAR
                     const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
                     const dataToSave = {
                         ...patientData,
@@ -360,14 +386,14 @@
             const handleDeletePatient = async (id) => {
                 if (!confirm("¿Está seguro de eliminar este paciente y toda su historia?")) return;
                 try {
-                    // CAMBIO A RUTA PÚBLICA PARA BORRAR
+                    // RUTA PÚBLICA PARA BORRAR
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'patients', id));
                 } catch (err) {
                     console.error(err);
                 }
             };
 
-            // Filter Logic
+            // Filter Logic (used for search)
             const filteredPatients = useMemo(() => {
                 if (!searchTerm) return patients;
                 const lower = searchTerm.toLowerCase();
@@ -377,6 +403,16 @@
                     p.dni.includes(lower)
                 );
             }, [patients, searchTerm]);
+
+            // Determinar la lista a renderizar (limitada a 5 si no hay búsqueda)
+            const listToRender = useMemo(() => {
+                if (searchTerm) {
+                    return filteredPatients;
+                }
+                // Mostrar solo las últimas 5 historias consultadas
+                return filteredPatients.slice(0, 5); 
+            }, [filteredPatients, searchTerm]);
+
 
             // Views
             if (!auth) return (
@@ -411,6 +447,9 @@
                                 <AlertCircle size={16} /> {errorMsg}
                             </div>
                         )}
+                        
+                        {/* Muestra la guía si hay un error de permisos */}
+                        {errorMsg && errorMsg.includes('Permisos') && <RulesGuide />}
 
                         {view === 'list' ? (
                             <div className="space-y-6">
@@ -436,15 +475,16 @@
                                 <div className="space-y-3">
                                     {loading ? (
                                         <p className="text-center text-slate-400 py-4">Cargando pacientes...</p>
-                                    ) : filteredPatients.length === 0 ? (
+                                    ) : listToRender.length === 0 ? (
                                         <div className="text-center py-10 opacity-60">
                                             <Baby size={48} className="mx-auto mb-2 text-slate-300" />
                                             <p>No se encontraron pacientes</p>
                                         </div>
                                     ) : (
-                                        filteredPatients.map(patient => (
+                                        listToRender.map(patient => (
                                             <Card key={patient.id} className="hover:shadow-md transition-shadow cursor-pointer group relative">
-                                                <div onClick={() => { setCurrentPatient(patient); setView('form'); }}>
+                                                {/* Contenido con padding-right para evitar superposición del botón */}
+                                                <div className="pr-10" onClick={() => { setCurrentPatient(patient); setView('form'); }}>
                                                     <div className="flex justify-between items-start">
                                                         <div>
                                                             <h3 className="font-bold text-lg text-slate-800">{patient.lastName}, {patient.firstName}</h3>
@@ -462,14 +502,19 @@
                                                         </div>
                                                     )}
                                                 </div>
+                                                {/* Botón de borrar: posición fija y z-index alto */}
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); handleDeletePatient(patient.id); }}
-                                                    className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                                    className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-white/50 hover:bg-white z-10"
+                                                    title="Eliminar paciente"
                                                 >
                                                     <Trash2 size={18} />
                                                 </button>
                                             </Card>
                                         ))
+                                    )}
+                                    {!searchTerm && patients.length > 5 && (
+                                        <p className="text-center text-slate-500 text-sm mt-4">Mostrando las últimas 5 de {patients.length} historias. Usa la búsqueda para ver todas.</p>
                                     )}
                                 </div>
                             </div>
@@ -496,6 +541,7 @@
             });
             const [ageString, setAgeString] = useState("");
             const [newPending, setNewPending] = useState("");
+            const [modalImageSrc, setModalImageSrc] = useState(null); // Nuevo estado para la imagen en modal
 
             useEffect(() => {
                 if (initialData) {
@@ -561,7 +607,8 @@
                         canvas.height = h;
                         ctx.drawImage(img, 0, 0, w, h);
                         
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // 60% quality
+                        // Compresión a 75% de calidad para preservar mejor el texto escaneado.
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75); 
                         handleChange('images', [...formData.images, { id: Date.now(), src: compressedBase64, date: new Date().toLocaleDateString() }]);
                     }
                 };
@@ -573,184 +620,222 @@
                     handleChange('images', formData.images.filter(img => img.id !== id));
                 }
             };
+            
+            // Componente Modal para visualización a pantalla completa
+            const ImageViewerModal = ({ src, onClose }) => {
+                if (!src) return null;
+                return (
+                    <div 
+                        className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 animate-fade-in" 
+                        onClick={onClose}
+                    >
+                        <button 
+                            className="absolute top-4 right-4 text-white p-3 rounded-full bg-white/10 hover:bg-white/30 transition-all"
+                            onClick={onClose}
+                        >
+                            <X size={28} />
+                        </button>
+                        <img 
+                            src={src} 
+                            alt="Documento escaneado a pantalla completa" 
+                            className="max-w-full max-h-full object-contain shadow-2xl"
+                            onClick={(e) => e.stopPropagation()} // Evitar cerrar al hacer clic en la imagen
+                        />
+                    </div>
+                );
+            };
 
             return (
-                <form className="space-y-6 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onSave(formData); }}>
-                    
-                    {/* Sección 1: Datos Filiatorios */}
-                    <Card className="border-l-4 border-l-sky-500">
-                        <div className="flex items-center gap-2 mb-4 text-sky-800">
-                            <User size={20} />
-                            <h3 className="font-bold text-lg">Datos del Paciente</h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre</label>
-                                <input required type="text" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                    value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Apellido</label>
-                                <input required type="text" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                    value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">DNI</label>
-                                <input required type="number" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                    value={formData.dni} onChange={e => handleChange('dni', e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha Nacimiento</label>
-                                <input required type="date" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
-                                    value={formData.birthDate} onChange={e => handleChange('birthDate', e.target.value)} />
-                                {ageString && <p className="text-right text-xs text-sky-600 font-bold mt-1">{ageString}</p>}
-                            </div>
-                        </div>
-                    </Card>
+                <>
+                    <ImageViewerModal 
+                        src={modalImageSrc} 
+                        onClose={() => setModalImageSrc(null)} 
+                    />
 
-                    {/* Sección 2: Antecedentes */}
-                    <Card>
-                        <div className="flex items-center gap-2 mb-4 text-sky-800">
-                            <Activity size={20} />
-                            <h3 className="font-bold text-lg">Antecedentes Clínicos</h3>
-                        </div>
-                        <div className="space-y-4">
-                            <TagInput 
-                                label="Antecedentes Neonatales" 
-                                placeholder="Buscar o agregar (Ej. Ictericia)..."
-                                options={predefinedNeonatal}
-                                value={formData.neonatalHistory}
-                                onChange={val => handleChange('neonatalHistory', val)}
-                            />
-                            <TagInput 
-                                label="Antecedentes Patológicos" 
-                                placeholder="Buscar o agregar (Ej. Asma)..."
-                                options={predefinedPathological}
-                                value={formData.pathologicalHistory}
-                                onChange={val => handleChange('pathologicalHistory', val)}
-                            />
-                        </div>
-                    </Card>
+                    <form className="space-y-6 animate-fade-in" onSubmit={(e) => { e.preventDefault(); onSave(formData); }}>
+                        
+                        {/* Sección 1: Datos Filiatorios */}
+                        <Card className="border-l-4 border-l-sky-500">
+                            <div className="flex items-center gap-2 mb-4 text-sky-800">
+                                <User size={20} />
+                                <h3 className="font-bold text-lg">Datos del Paciente</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre</label>
+                                    <input required type="text" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
+                                        value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Apellido</label>
+                                    <input required type="text" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
+                                        value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">DNI</label>
+                                    <input required type="number" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
+                                        value={formData.dni} onChange={e => handleChange('dni', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha Nacimiento</label>
+                                    <input required type="date" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-sky-200 outline-none" 
+                                        value={formData.birthDate} onChange={e => handleChange('birthDate', e.target.value)} />
+                                    {ageString && <p className="text-right text-xs text-sky-600 font-bold mt-1">{ageString}</p>}
+                                </div>
+                            </div>
+                        </Card>
 
-                    {/* Sección 3: Consulta Actual */}
-                    <Card>
-                        <div className="flex items-center gap-2 mb-4 text-sky-800">
-                            <Stethoscope size={20} />
-                            <h3 className="font-bold text-lg">Consulta Actual (Antropometría)</h3>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1 text-center">Peso (kg)</label>
-                                <input type="number" step="0.01" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
-                                    value={formData.weight} onChange={e => handleChange('weight', e.target.value)} />
+                        {/* Sección 2: Antecedentes */}
+                        <Card>
+                            <div className="flex items-center gap-2 mb-4 text-sky-800">
+                                <Activity size={20} />
+                                <h3 className="font-bold text-lg">Antecedentes Clínicos</h3>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1 text-center">Talla (cm)</label>
-                                <input type="number" step="0.1" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
-                                    value={formData.height} onChange={e => handleChange('height', e.target.value)} />
+                            <div className="space-y-4">
+                                <TagInput 
+                                    label="Antecedentes Neonatales" 
+                                    placeholder="Buscar o agregar (Ej. Ictericia)..."
+                                    options={predefinedNeonatal}
+                                    value={formData.neonatalHistory}
+                                    onChange={val => handleChange('neonatalHistory', val)}
+                                />
+                                <TagInput 
+                                    label="Antecedentes Patológicos" 
+                                    placeholder="Buscar o agregar (Ej. Asma)..."
+                                    options={predefinedPathological}
+                                    value={formData.pathologicalHistory}
+                                    onChange={val => handleChange('pathologicalHistory', val)}
+                                />
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1 text-center">P. Cefálico</label>
-                                <input type="number" step="0.1" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
-                                    value={formData.headCircumference} onChange={e => handleChange('headCircumference', e.target.value)} />
-                            </div>
-                        </div>
-                        <div className="mt-4">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notas de Evolución</label>
-                            <textarea className="w-full p-3 border rounded-lg h-32 resize-none focus:ring-2 focus:ring-sky-200 outline-none" 
-                                placeholder="Escriba aquí los detalles de la consulta..."
-                                value={formData.notes} onChange={e => handleChange('notes', e.target.value)}
-                            ></textarea>
-                        </div>
-                    </Card>
+                        </Card>
 
-                    {/* Sección 4: Pendientes */}
-                    <Card className="bg-amber-50 border-amber-100">
-                        <div className="flex items-center gap-2 mb-4 text-amber-700">
-                            <AlertCircle size={20} />
-                            <h3 className="font-bold text-lg">Pendientes</h3>
-                        </div>
-                        <div className="flex gap-2 mb-3">
-                            <input 
-                                type="text" 
-                                className="flex-1 p-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-200 bg-white"
-                                placeholder="Nuevo pendiente (Ej. Traer radiografía)..."
-                                value={newPending}
-                                onChange={e => setNewPending(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addPending())}
-                            />
-                            <Button variant="secondary" onClick={addPending} className="bg-amber-200 text-amber-800 hover:bg-amber-300">
-                                <Plus size={18} />
+                        {/* Sección 3: Consulta Actual */}
+                        <Card>
+                            <div className="flex items-center gap-2 mb-4 text-sky-800">
+                                <Stethoscope size={20} />
+                                <h3 className="font-bold text-lg">Consulta Actual (Antropometría)</h3>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1 text-center">Peso (kg)</label>
+                                    <input type="number" step="0.01" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
+                                        value={formData.weight} onChange={e => handleChange('weight', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1 text-center">Talla (cm)</label>
+                                    <input type="number" step="0.1" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
+                                        value={formData.height} onChange={e => handleChange('height', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1 text-center">P. Cefálico</label>
+                                    <input type="number" step="0.1" className="w-full p-2 border rounded-lg text-center font-mono text-lg" 
+                                        value={formData.headCircumference} onChange={e => handleChange('headCircumference', e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notas de Evolución</label>
+                                <textarea className="w-full p-3 border rounded-lg h-32 resize-none focus:ring-2 focus:ring-sky-200 outline-none" 
+                                    placeholder="Escriba aquí los detalles de la consulta..."
+                                    value={formData.notes} onChange={e => handleChange('notes', e.target.value)}
+                                ></textarea>
+                            </div>
+                        </Card>
+
+                        {/* Sección 4: Pendientes */}
+                        <Card className="bg-amber-50 border-amber-100">
+                            <div className="flex items-center gap-2 mb-4 text-amber-700">
+                                <AlertCircle size={20} />
+                                <h3 className="font-bold text-lg">Pendientes</h3>
+                            </div>
+                            <div className="flex gap-2 mb-3">
+                                <input 
+                                    type="text" 
+                                    className="flex-1 p-2 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-200 bg-white"
+                                    placeholder="Nuevo pendiente (Ej. Traer radiografía)..."
+                                    value={newPending}
+                                    onChange={e => setNewPending(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addPending())}
+                                />
+                                <Button variant="secondary" onClick={addPending} className="bg-amber-200 text-amber-800 hover:bg-amber-300">
+                                    <Plus size={18} />
+                                </Button>
+                            </div>
+                            <ul className="space-y-2">
+                                {formData.pendingItems.map(item => (
+                                    <li key={item.id} className="flex items-center justify-between p-2 bg-white rounded border border-amber-100 shadow-sm animate-fade-in-up">
+                                        <span className="text-sm text-slate-700">{item.text}</span>
+                                        <button 
+                                            type="button"
+                                            onClick={() => removePending(item.id)} 
+                                            className="text-emerald-500 hover:text-emerald-700 p-1" 
+                                            title="Marcar como cumplido"
+                                        >
+                                            <CheckCircle size={18} />
+                                        </button>
+                                    </li>
+                                ))}
+                                {formData.pendingItems.length === 0 && <p className="text-xs text-amber-400 italic">No hay pendientes activos.</p>}
+                            </ul>
+                        </Card>
+
+                        {/* Sección 5: Archivos Adjuntos */}
+                        <Card>
+                            <div className="flex items-center justify-between mb-4 text-slate-700">
+                                <div className="flex items-center gap-2">
+                                    <FileText size={20} />
+                                    <h3 className="font-bold text-lg">Archivos / Fichas Escaneadas</h3>
+                                </div>
+                                <label className="cursor-pointer bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 flex items-center gap-2">
+                                    <Camera size={16} /> Subir
+                                    {/* CAMBIO: Se añade capture="camera" para facilitar la captura directa */}
+                                    <input type="file" accept="image/*" capture="camera" className="hidden" onChange={handleImageUpload} />
+                                </label>
+                            </div>
+                            
+                            {formData.images.length > 0 ? (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {formData.images.map((img, idx) => (
+                                        <div key={img.id} className="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-200">
+                                            {/* Nuevo: onClick para abrir el modal */}
+                                            <img 
+                                                src={img.src} 
+                                                alt="Ficha" 
+                                                className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                                onClick={() => setModalImageSrc(img.src)}
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => removeImage(img.id)}
+                                                    className="bg-white text-red-500 p-2 rounded-full"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                            <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center truncate">
+                                                {img.date}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center text-slate-400 text-sm">
+                                    No hay imágenes adjuntas
+                                </div>
+                            )}
+                        </Card>
+
+                        {/* Actions */}
+                        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
+                            <Button variant="danger" onClick={onCancel} className="flex-1 md:flex-none">
+                                Cancelar
+                            </Button>
+                            <Button type="submit" onClick={() => onSave(formData)} className="flex-1 md:w-48">
+                                <Save size={18} /> Guardar Historia
                             </Button>
                         </div>
-                        <ul className="space-y-2">
-                            {formData.pendingItems.map(item => (
-                                <li key={item.id} className="flex items-center justify-between p-2 bg-white rounded border border-amber-100 shadow-sm animate-fade-in-up">
-                                    <span className="text-sm text-slate-700">{item.text}</span>
-                                    <button 
-                                        type="button"
-                                        onClick={() => removePending(item.id)} 
-                                        className="text-emerald-500 hover:text-emerald-700 p-1" 
-                                        title="Marcar como cumplido"
-                                    >
-                                        <CheckCircle size={18} />
-                                    </button>
-                                </li>
-                            ))}
-                            {formData.pendingItems.length === 0 && <p className="text-xs text-amber-400 italic">No hay pendientes activos.</p>}
-                        </ul>
-                    </Card>
-
-                    {/* Sección 5: Archivos Adjuntos */}
-                    <Card>
-                        <div className="flex items-center justify-between mb-4 text-slate-700">
-                            <div className="flex items-center gap-2">
-                                <FileText size={20} />
-                                <h3 className="font-bold text-lg">Archivos / Fichas Escaneadas</h3>
-                            </div>
-                            <label className="cursor-pointer bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 flex items-center gap-2">
-                                <Camera size={16} /> Subir
-                                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                            </label>
-                        </div>
-                        
-                        {formData.images.length > 0 ? (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {formData.images.map((img, idx) => (
-                                    <div key={img.id} className="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-200">
-                                        <img src={img.src} alt="Ficha" className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <button 
-                                                type="button" 
-                                                onClick={() => removeImage(img.id)}
-                                                className="bg-white text-red-500 p-2 rounded-full"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                        <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center truncate">
-                                            {img.date}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center text-slate-400 text-sm">
-                                No hay imágenes adjuntas
-                            </div>
-                        )}
-                    </Card>
-
-                    {/* Actions */}
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
-                         <Button variant="danger" onClick={onCancel} className="flex-1 md:flex-none">
-                            Cancelar
-                        </Button>
-                        <Button type="submit" onClick={() => onSave(formData)} className="flex-1 md:w-48">
-                            <Save size={18} /> Guardar Historia
-                        </Button>
-                    </div>
-                </form>
+                    </form>
+                </>
             );
         };
 
