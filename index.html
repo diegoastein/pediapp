@@ -203,6 +203,49 @@
                 document.body.removeChild(textarea);
             }
         }
+        
+        // NUEVA FUNCIÓN: Genera el resumen en texto plano para compartir
+        function generatePatientSummary(patient) {
+            const age = calculateAge(patient.birthDate);
+            
+            let summary = `--- Historia Clínica: ${patient.lastName}, ${patient.firstName} ---\n`;
+            summary += `DNI: ${patient.dni}\n`;
+            summary += `Fecha de Nacimiento: ${patient.birthDate} (Edad: ${age})\n\n`;
+
+            summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory.join('\n- ') || 'Ninguno'}\n\n`;
+            summary += `ANTECEDENTES PATOLÓGICOS:\n- ${patient.pathologicalHistory.join('\n- ') || 'Ninguno'}\n\n`;
+
+            if (patient.consultations && patient.consultations.length > 0) {
+                summary += `HISTORIAL DE CONSULTAS (${patient.consultations.length}):\n`;
+                // Recorrer al revés para que la más reciente aparezca primero
+                [...patient.consultations].sort((a, b) => b.date - a.date).forEach(c => {
+                    const dateStr = formatDate(c.date);
+                    const ageAtConsultation = calculateAgeAtDate(patient.birthDate, c.date);
+                    
+                    summary += `\n--- Consulta del ${dateStr} (Edad: ${ageAtConsultation}) ---\n`;
+                    if (c.motive && c.motive.length > 0) {
+                        summary += `Motivo: ${c.motive.join(', ')}\n`;
+                    }
+                    if (c.weight || c.height || c.headCircumference) {
+                        summary += `Antropometría:\n`;
+                        if (c.weight) summary += `  - Peso: ${c.weight} kg\n`;
+                        if (c.height) summary += `  - Talla: ${c.height} cm\n`;
+                        if (c.headCircumference) summary += `  - P. Cefálico: ${c.headCircumference}\n`;
+                    }
+                    if (c.notes) {
+                        summary += `Notas de Evolución: ${c.notes.trim().replace(/\n/g, ' | ')}\n`;
+                    }
+                });
+            } else {
+                summary += `HISTORIAL DE CONSULTAS: Ninguno registrado.\n`;
+            }
+            
+            if (patient.pendingItems && patient.pendingItems.length > 0) {
+                summary += `\nPENDIENTES ACTUALES:\n- ${patient.pendingItems.map(p => p.text).join('\n- ') || 'Ninguno'}\n`;
+            }
+
+            return summary;
+        }
 
 
         // --- Error Boundary ---
@@ -369,6 +412,44 @@
                 </div>
             );
         };
+        
+        // NUEVO Componente: Modal para compartir resumen desde la lista
+        const ListShareModal = ({ patient, onClose }) => {
+            const [copied, setCopied] = useState(false);
+
+            if (!patient) return null;
+            
+            const summary = generatePatientSummary(patient);
+
+            const handleCopy = () => {
+                if (copyToClipboard(summary)) {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }
+            };
+
+            return (
+                <Modal isOpen={!!patient} onClose={onClose} title={`Compartir Resumen de ${patient.lastName}`}>
+                    <p className="text-sm text-slate-600 mb-3">
+                        Copia el resumen completo de la historia clínica en formato de texto plano para compartirlo fuera de la aplicación.
+                    </p>
+                    <div className="max-h-80 overflow-y-auto bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+                        <pre className="text-xs whitespace-pre-wrap font-mono text-slate-800">{summary}</pre>
+                    </div>
+                    
+                    <div className="flex justify-end">
+                        <Button 
+                            variant="primary" 
+                            onClick={handleCopy} 
+                            className={`w-full ${copied ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}
+                        >
+                            {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
+                            {copied ? '¡Resumen Copiado!' : 'Copiar Resumen'}
+                        </Button>
+                    </div>
+                </Modal>
+            );
+        };
 
 
         // --- Main App Logic ---
@@ -387,6 +468,9 @@
             const [searchTerm, setSearchTerm] = useState("");
             const [loading, setLoading] = useState(true);
             const [errorMsg, setErrorMsg] = useState(null);
+            // NUEVO: Estado para compartir paciente desde la lista
+            const [sharePatientData, setSharePatientData] = useState(null); 
+
 
             // Firebase hooks
             const { auth, db, appId, signInAnonymously, onAuthStateChanged, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
@@ -529,6 +613,9 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl shadow-slate-200">
+                    {/* Renderiza el modal de compartir de la lista */}
+                    {sharePatientData && <ListShareModal patient={sharePatientData} onClose={() => setSharePatientData(null)} />}
+                    
                     {/* Header */}
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b border-slate-100 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sky-600">
@@ -585,9 +672,9 @@
                                         </div>
                                     ) : (
                                         listToRender.map(patient => (
-                                            <Card key={patient.id} className="hover:shadow-md transition-shadow cursor-pointer group relative">
-                                                {/* Contenido con padding-right para evitar superposición del botón */}
-                                                <div className="pr-10" onClick={() => { setCurrentPatient(patient); setView('form'); }}>
+                                            <Card key={patient.id} className="hover:shadow-md transition-shadow group relative">
+                                                {/* Contenido principal (clickable para abrir el formulario) */}
+                                                <div className="pr-16 cursor-pointer" onClick={() => { setCurrentPatient(patient); setView('form'); }}>
                                                     <div className="flex justify-between items-start">
                                                         <div>
                                                             <h3 className="font-bold text-lg text-slate-800">{patient.lastName}, {patient.firstName}</h3>
@@ -605,14 +692,26 @@
                                                         </div>
                                                     )}
                                                 </div>
-                                                {/* Botón de borrar: posición fija y z-index alto */}
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleDeletePatient(patient.id); }}
-                                                    className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-white/50 hover:bg-white z-10"
-                                                    title="Eliminar paciente"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                                
+                                                {/* Botones de acción (Borrar y Compartir) */}
+                                                <div className="absolute top-4 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                    {/* NUEVO Botón Compartir */}
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); setSharePatientData(patient); }}
+                                                        className="text-slate-400 hover:text-sky-500 p-2 rounded-full bg-white/50 hover:bg-white transition-all"
+                                                        title="Compartir ficha (Texto Plano)"
+                                                    >
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                    {/* Botón de borrar */}
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); handleDeletePatient(patient.id); }}
+                                                        className="text-slate-300 hover:text-red-500 p-2 rounded-full bg-white/50 hover:bg-white transition-all"
+                                                        title="Eliminar paciente"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
                                             </Card>
                                         ))
                                     )}
@@ -867,7 +966,7 @@
                 );
             };
             
-            // NUEVO: Componente Modal para Compartir Ficha
+            // Componente Modal para Compartir Ficha (solo ID en este contexto)
             const ShareModal = ({ isOpen, onClose, patientId }) => {
                 const [copied, setCopied] = useState(false);
                 const shareLink = `[URL_DE_LA_APP]/patient/${patientId}`;
@@ -887,7 +986,7 @@
                 };
 
                 return (
-                    <Modal isOpen={isOpen} onClose={onClose} title="Compartir Ficha">
+                    <Modal isOpen={isOpen} onClose={onClose} title="Compartir Ficha (ID)">
                         <p className="text-sm text-slate-600 mb-4">
                             Comparta el ID de esta ficha para que otros usuarios con acceso a la base de datos puedan verla o editarla.
                         </p>
@@ -1174,13 +1273,16 @@
                             {formData.images.length > 0 ? (
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {formData.images.map((img, idx) => (
-                                        <div key={img.id} className="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-200">
-                                            {/* FIX: Cambiado object-cover a object-contain para asegurar que el documento completo sea visible en la miniatura */}
+                                        // FIX 2: onClick en el contenedor para que la miniatura sea totalmente cliqueable
+                                        <div 
+                                            key={img.id} 
+                                            className="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-200 cursor-pointer" 
+                                            onClick={() => setModalImageSrc(img.src)} 
+                                        >
                                             <img 
                                                 src={img.src} 
                                                 alt={`Documento escaneado ${idx + 1}`} 
-                                                className="w-full h-full object-contain cursor-pointer hover:opacity-80 transition-opacity"
-                                                onClick={() => setModalImageSrc(img.src)}
+                                                className="w-full h-full object-contain transition-opacity"
                                             />
                                             {/* DEBUG: Añadir elemento visual si el src no está presente (ayuda a identificar si el problema es de datos o de renderizado) */}
                                             {!img.src && (
@@ -1188,11 +1290,12 @@
                                                     Error de carga (Base64 no encontrado)
                                                 </div>
                                             )}
+                                            {/* FIX 2: El botón de borrado ahora usa e.stopPropagation() para no disparar el modal al borrar */}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => removeImage(img.id)}
-                                                    className="bg-white text-red-500 p-2 rounded-full"
+                                                    onClick={(e) => { e.stopPropagation(); removeImage(img.id); }}
+                                                    className="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition-transform"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
