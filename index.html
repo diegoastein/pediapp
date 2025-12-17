@@ -25,7 +25,7 @@
         
         /* Animations */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
         .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
     </style>
@@ -143,6 +143,42 @@
             if(months === 0) return `${years} años`;
             return `${years} años, ${months} meses`;
         }
+        
+        // NUEVA FUNCIÓN: Calcula la edad en una fecha específica
+        function calculateAgeAtDate(birthDateStr, consultationDateMs) {
+            if (!birthDateStr || !consultationDateMs) return "";
+            
+            const birth = new Date(birthDateStr);
+            const consultation = new Date(consultationDateMs);
+            
+            let years = consultation.getFullYear() - birth.getFullYear();
+            let months = consultation.getMonth() - birth.getMonth();
+            let days = consultation.getDate() - birth.getDate();
+
+            if (days < 0) {
+                months--;
+                // Calcular días en el mes anterior
+                days += new Date(consultation.getFullYear(), consultation.getMonth(), 0).getDate();
+            }
+
+            if (months < 0) {
+                years--;
+                months += 12;
+            }
+
+            if (years >= 1) {
+                // Mostrar hasta meses si tiene más de 1 año
+                return `${years} a${years !== 1 ? 'ños' : 'ño'}, ${months} m${months !== 1 ? 'eses' : 'es'}`;
+            } else if (months >= 1) {
+                // Mostrar meses y días si tiene menos de 1 año
+                return `${months} m${months !== 1 ? 'eses' : 'es'}, ${days} d${days !== 1 ? 'ías' : 'ía'}`;
+            } else if (days >= 0) {
+                return `${days} d${days !== 1 ? 'ías' : 'ía'}`;
+            } else {
+                return "Fecha inválida"; 
+            }
+        }
+
 
         function formatDate(timestamp) {
             if (!timestamp) return 'Sin fecha';
@@ -615,8 +651,10 @@
                 setNewConsultation(prev => ({ ...prev, [field]: value }));
             };
 
+            // FIX 1: Modificado para devolver la lista actualizada y limpiar el estado de 'newConsultation'
             const handleSaveCurrentConsultation = () => {
                 const { weight, height, headCircumference, notes } = newConsultation;
+                
                 // Si al menos un campo de la consulta está lleno, se registra
                 if (weight || height || headCircumference || notes) {
                     const consultationToAdd = {
@@ -628,11 +666,8 @@
                         // Ordenar por fecha, el más reciente primero
                         .sort((a, b) => b.date - a.date); 
 
-                    // Actualizar formData con la nueva consulta
-                    handleChange('consultations', updatedConsultations);
-                    
                     // DEBUG: Confirma que se añadió la nueva consulta al estado local
-                    console.log("Nueva consulta añadida (local):", consultationToAdd);
+                    console.log("Nueva consulta calculada:", consultationToAdd);
 
                     // Limpiar la nueva consulta después de agregar
                     setNewConsultation({
@@ -640,17 +675,29 @@
                         weight: '', height: '', headCircumference: '', notes: ''
                     });
                     
-                    return true; // Indica que se añadió una nueva consulta
+                    // Devolver el array actualizado para que handleSubmit lo use
+                    return updatedConsultations;
                 }
-                return false; // No hay datos nuevos de consulta
+                
+                // Devolver el array original si no hay cambios en la consulta actual
+                return formData.consultations; 
             }
 
+            // FIX 1: Modificado para usar la lista de consultas devuelta por handleSaveCurrentConsultation
             const handleSubmit = (e) => {
                 e.preventDefault();
-                // Intentar añadir la consulta actual al historial antes de guardar
-                handleSaveCurrentConsultation();
-                // Llamar a la función de guardado principal con los datos actualizados, incluyendo el historial
-                onSave(formData);
+                
+                // 1. Obtener la lista de consultas, asegurando que la nueva consulta se haya procesado
+                const updatedConsultations = handleSaveCurrentConsultation();
+
+                // 2. Crear el objeto de datos final con las consultas actualizadas
+                const dataToSave = {
+                    ...formData,
+                    consultations: updatedConsultations
+                };
+                
+                // 3. Llamar a la función de guardado principal
+                onSave(dataToSave);
             }
 
             const addPending = () => {
@@ -867,6 +914,9 @@
                                         />
                                     </div>
                                 </div>
+                                
+                                {/* NUEVO: Antropometría Header en Consulta Actual */}
+                                <h6 className="text-xs font-bold text-slate-600 mb-2 mt-4 text-center border-t pt-2">Antropometría</h6>
 
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
@@ -900,25 +950,36 @@
                                 {formData.consultations.length === 0 ? (
                                     <p className="text-sm text-slate-400 italic">No hay consultas anteriores registradas.</p>
                                 ) : (
-                                    formData.consultations.map((consultation, index) => (
-                                        <div key={consultation.id || index} className="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm animate-fade-in-up">
-                                            <div className="flex justify-between items-start mb-2 pb-1 border-b border-slate-200">
-                                                <h5 className="text-sm font-bold text-sky-600">Consulta {formatDate(consultation.date)}</h5>
+                                    formData.consultations.map((consultation, index) => {
+                                        const ageAtConsultation = calculateAgeAtDate(formData.birthDate, consultation.date);
+                                        return (
+                                            <div key={consultation.id || index} className="bg-slate-50 p-3 rounded-lg border border-slate-200 shadow-sm animate-fade-in-up">
+                                                <div className="flex justify-between items-start mb-2 pb-1 border-b border-slate-200">
+                                                    <h5 className="text-sm font-bold text-sky-600">Consulta {formatDate(consultation.date)}</h5>
+                                                    {/* NUEVO: Mostrar la edad en la fecha de consulta */}
+                                                    <span className="text-xs font-semibold text-slate-600 bg-sky-100 px-2 py-0.5 rounded-full">
+                                                        Edad: {ageAtConsultation}
+                                                    </span>
+                                                </div>
+                                                
+                                                {/* NUEVO: Antropometría Header en Historial */}
+                                                <h6 className="text-xs font-bold text-slate-600 mb-1">Antropometría</h6>
+                                                
+                                                <div className="grid grid-cols-3 gap-2 text-xs text-slate-700 mb-2">
+                                                    <div className="font-mono bg-white p-1 rounded border text-center">
+                                                        <strong>{consultation.weight}</strong> kg
+                                                    </div>
+                                                    <div className="font-mono bg-white p-1 rounded border text-center">
+                                                        <strong>{consultation.height}</strong> cm
+                                                    </div>
+                                                    <div className="font-mono bg-white p-1 rounded border text-center">
+                                                        <strong>{consultation.headCircumference}</strong> P.C.
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm italic text-slate-600 whitespace-pre-wrap">{consultation.notes || 'Sin notas de evolución.'}</p>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-2 text-xs text-slate-700 mb-2">
-                                                <div className="font-mono bg-white p-1 rounded border text-center">
-                                                    <strong>{consultation.weight}</strong> kg
-                                                </div>
-                                                <div className="font-mono bg-white p-1 rounded border text-center">
-                                                    <strong>{consultation.height}</strong> cm
-                                                </div>
-                                                <div className="font-mono bg-white p-1 rounded border text-center">
-                                                    <strong>{consultation.headCircumference}</strong> P.C.
-                                                </div>
-                                            </div>
-                                            <p className="text-sm italic text-slate-600 whitespace-pre-wrap">{consultation.notes || 'Sin notas de evolución.'}</p>
-                                        </div>
-                                    ))
+                                        )
+                                    })
                                 )}
                             </div>
                         </Card>
@@ -977,11 +1038,11 @@
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {formData.images.map((img, idx) => (
                                         <div key={img.id} className="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-200">
-                                            {/* Nuevo: onClick para abrir el modal */}
+                                            {/* FIX: Cambiado object-cover a object-contain para asegurar que el documento completo sea visible en la miniatura */}
                                             <img 
                                                 src={img.src} 
                                                 alt={`Documento escaneado ${idx + 1}`} 
-                                                className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                                className="w-full h-full object-contain cursor-pointer hover:opacity-80 transition-opacity"
                                                 onClick={() => setModalImageSrc(img.src)}
                                             />
                                             {/* DEBUG: Añadir elemento visual si el src no está presente (ayuda a identificar si el problema es de datos o de renderizado) */}
