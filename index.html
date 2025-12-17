@@ -297,9 +297,10 @@
             useEffect(() => {
                 if (!user || !db) return;
                 
-                // Rule: Path for production. We organize by appID -> users -> userID -> patients
-                // This keeps data private per doctor (user)
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+                // CAMBIO A RUTA PÚBLICA PARA PERMITIR SINCRONIZACIÓN ENTRE DISPOSITIVOS
+                // Antes: 'users', user.uid, 'patients' (Privado por dispositivo)
+                // Ahora: 'public', 'data', 'patients' (Compartido por todos los dispositivos con la misma config)
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
                 
                 const unsubscribe = onSnapshot(colRef, (snapshot) => {
                     const loadedPatients = snapshot.docs.map(doc => ({
@@ -328,7 +329,8 @@
                 if (!user || !db) return;
                 setLoading(true);
                 try {
-                    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+                    // CAMBIO A RUTA PÚBLICA PARA GUARDAR
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
                     const dataToSave = {
                         ...patientData,
                         updatedAt: serverTimestamp(),
@@ -358,7 +360,8 @@
             const handleDeletePatient = async (id) => {
                 if (!confirm("¿Está seguro de eliminar este paciente y toda su historia?")) return;
                 try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', id));
+                    // CAMBIO A RUTA PÚBLICA PARA BORRAR
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'patients', id));
                 } catch (err) {
                     console.error(err);
                 }
