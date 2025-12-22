@@ -476,7 +476,8 @@
                 neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
             });
             const [newConsultation, setNewConsultation] = useState({
-                date: new Date().toISOString().split('T')[0], motive: [], weight: '', height: '', headCircumference: '', notes: ''
+                date: new Date().toLocaleDateString('en-CA')
+, motive: [], weight: '', height: '', headCircumference: '', notes: ''
             });
             const [newPending, setNewPending] = useState("");
             const [modalImageSrc, setModalImageSrc] = useState(null); 
