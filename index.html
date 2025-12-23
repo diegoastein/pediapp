@@ -387,7 +387,11 @@
                 if (!user || !db) return;
                 setLoading(true);
                 const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
-                const toSave = { ...data, updatedAt: serverTimestamp() };
+                const toSave = { 
+  ...data, 
+  updatedAt: navigator.onLine ? serverTimestamp() : Date.now()
+};
+
                 try {
                     if (currentPatient?.id) await updateDoc(doc(colRef, currentPatient.id), toSave);
                     else await addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
