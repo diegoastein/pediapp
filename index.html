@@ -394,7 +394,7 @@
 
                 try {
                     if (currentPatient?.id) await updateDoc(doc(colRef, currentPatient.id), toSave);
-                    else await addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
+                    else await addDoc(colRef, { ...toSave, createdAt: navigator.onLine ? serverTimestamp() : Date.now() });
                     setView("list");
                     setCurrentPatient(null);
                 } catch (e) { alert("Error al guardar"); }
