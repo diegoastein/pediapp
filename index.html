@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <link rel="manifest" href="manifest.json">
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>H.C. dra Abraldes</title>
@@ -181,6 +183,77 @@
                 document.body.removeChild(textarea);
             }
         }
+        function buildBackupData(patients) {
+    const now = new Date();
+
+    return {
+        metadata: {
+            app: "PediApp",
+            schemaVersion: "1.0",
+            exportedAt: now.toISOString(),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            patientCount: patients.length
+        },
+        patients: patients.map(p => ({
+            patientId: p.id || `local-${Date.now()}`,
+            identity: {
+                firstName: p.firstName || "",
+                lastName: p.lastName || "",
+                dni: p.dni || "",
+                birthDate: p.birthDate || "",
+                phone: p.phone || ""
+            },
+            clinicalHistory: {
+                neonatal: p.neonatalHistory || [],
+                pathological: p.pathologicalHistory || []
+            },
+            consultations: (p.consultations || []).map(c => {
+                const age = calculateAgeAtDate(p.birthDate, c.date);
+                return {
+                    consultationId: c.id || `c-${Date.now()}`,
+                    date: new Date(c.date).toISOString().slice(0, 10),
+                    ageAtConsultation: {
+                        formatted: age
+                    },
+                    motive: c.motive || [],
+                    anthropometry: {
+                        weightKg: c.weight || null,
+                        heightCm: c.height || null,
+                        headCircumferenceCm: c.headCircumference || null
+                    },
+                    notes: c.notes || "",
+                    createdAt: new Date(c.date).toISOString()
+                };
+            }),
+            pendingItems: (p.pendingItems || []).map(pi => ({
+                id: pi.id || `p-${Date.now()}`,
+                text: pi.text || "",
+                status: "open"
+            })),
+            attachments: (p.images || []).map(img => ({
+                id: img.id || `img-${Date.now()}`,
+                type: "image/jpeg",
+                description: "Imagen clínica",
+                createdAt: img.date || "",
+                data: img.src || ""
+            }))
+        }))
+    };
+}
+function downloadBackup(data) {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `pediapp-backup-${date}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+
         
         function generatePatientSummary(patient) {
             const age = calculateAge(patient.birthDate);
@@ -433,6 +506,17 @@
                                         />
                                     </div>
                                     <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full justify-center"><Plus size={20} /> Nuevo Paciente</Button>
+                                    <Button
+    variant="secondary"
+    className="w-full justify-center"
+    onClick={() => {
+        const backup = buildBackupData(patients);
+        downloadBackup(backup);
+    }}
+>
+    Exportar pacientes (backup)
+</Button>
+
                                 </div>
 
                                 <div className="space-y-3">
@@ -687,5 +771,15 @@ const handleSubmit = (e) => {
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
+    <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(() => console.log("Service Worker registrado"))
+      .catch(err => console.error("SW error:", err));
+  });
+}
+</script>
+
 </body>
 </html>
