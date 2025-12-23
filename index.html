@@ -517,7 +517,14 @@
                 let updatedConsultations = [...(formData.consultations || [])];
                 const { weight, height, headCircumference, notes, motive } = newConsultation;
                 if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
-                    updatedConsultations.push({ ...newConsultation, date: new Date(newConsultation.date).getTime(), id: Date.now() });
+                 const [y, m, d] = newConsultation.date.split("-").map(Number);
+
+updatedConsultations.push({
+  ...newConsultation,
+  date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
+  id: Date.now()
+});
+
                 }
                 onSave({ ...formData, consultations: updatedConsultations.sort((a,b) => b.date - a.date) });
             }
