@@ -480,13 +480,17 @@
                 </div>
             );
         };
-
         const PatientForm = ({ initialData, onSave, onCancel, options }) => {
-            const [formData, setFormData] = useState({ const [saving, setSaving] = useState(false);
 
-                firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
-                neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
-            });
+    const [saving, setSaving] = useState(false);
+
+    const [formData, setFormData] = useState({
+        firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
+        neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
+    });
+
+
+        
             const [newConsultation, setNewConsultation] = useState({
                 date: new Date().toLocaleDateString('en-CA')
 , motive: [], weight: '', height: '', headCircumference: '', notes: ''
@@ -524,24 +528,30 @@
                 reader.readAsDataURL(file);
             };
 
-            const handleSubmit = (e) => {
-                e.preventDefault(); setSaving(true);
+const handleSubmit = (e) => {
+    e.preventDefault();
+    setSaving(true);
 
-                let updatedConsultations = [...(formData.consultations || [])];
-                const { weight, height, headCircumference, notes, motive } = newConsultation;
-                if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
-                 const [y, m, d] = newConsultation.date.split("-").map(Number);
+    let updatedConsultations = [...(formData.consultations || [])];
+    const { weight, height, headCircumference, notes, motive } = newConsultation;
 
-updatedConsultations.push({
-  ...newConsultation,
-  date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
-  id: Date.now()
-});
+    if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
+        const [y, m, d] = newConsultation.date.split("-").map(Number);
+        updatedConsultations.push({
+            ...newConsultation,
+            date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
+            id: Date.now()
+        });
+    }
 
-                }
-                onSave({ ...formData, consultations: updatedConsultations.sort((a,b) => b.date - a.date) });
-            }
-            setTimeout(() => setSaving(false), 800);
+    onSave({ 
+        ...formData, 
+        consultations: updatedConsultations.sort((a,b) => b.date - a.date) 
+    });
+
+    setTimeout(() => setSaving(false), 800);
+};
+
 
 
             return (
