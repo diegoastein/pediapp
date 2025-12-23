@@ -34,6 +34,8 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
 
         const firebaseConfig = {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
@@ -52,6 +54,11 @@
             if (app) {
                 auth = getAuth(app);
                 db = getFirestore(app);
+                enableIndexedDbPersistence(db)
+  .catch((err) => {
+    console.warn("Firestore offline no disponible:", err.code);
+  });
+
             }
         } catch (e) {
             console.error("Error inicializando Firebase:", e);
@@ -380,10 +387,14 @@
                 if (!user || !db) return;
                 setLoading(true);
                 const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
-                const toSave = { ...data, updatedAt: serverTimestamp() };
+                const toSave = { 
+  ...data, 
+  updatedAt: navigator.onLine ? serverTimestamp() : Date.now()
+};
+
                 try {
                     if (currentPatient?.id) await updateDoc(doc(colRef, currentPatient.id), toSave);
-                    else await addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
+                    else await addDoc(colRef, { ...toSave, createdAt: navigator.onLine ? serverTimestamp() : Date.now() });
                     setView("list");
                     setCurrentPatient(null);
                 } catch (e) { alert("Error al guardar"); }
@@ -469,12 +480,17 @@
                 </div>
             );
         };
-
         const PatientForm = ({ initialData, onSave, onCancel, options }) => {
-            const [formData, setFormData] = useState({
-                firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
-                neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
-            });
+
+    const [saving, setSaving] = useState(false);
+
+    const [formData, setFormData] = useState({
+        firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
+        neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
+    });
+
+
+        
             const [newConsultation, setNewConsultation] = useState({
                 date: new Date().toLocaleDateString('en-CA')
 , motive: [], weight: '', height: '', headCircumference: '', notes: ''
@@ -512,22 +528,31 @@
                 reader.readAsDataURL(file);
             };
 
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                let updatedConsultations = [...(formData.consultations || [])];
-                const { weight, height, headCircumference, notes, motive } = newConsultation;
-                if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
-                 const [y, m, d] = newConsultation.date.split("-").map(Number);
+const handleSubmit = (e) => {
+    e.preventDefault();
+    setSaving(true);
 
-updatedConsultations.push({
-  ...newConsultation,
-  date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
-  id: Date.now()
-});
+    let updatedConsultations = [...(formData.consultations || [])];
+    const { weight, height, headCircumference, notes, motive } = newConsultation;
 
-                }
-                onSave({ ...formData, consultations: updatedConsultations.sort((a,b) => b.date - a.date) });
-            }
+    if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
+        const [y, m, d] = newConsultation.date.split("-").map(Number);
+        updatedConsultations.push({
+            ...newConsultation,
+            date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
+            id: Date.now()
+        });
+    }
+
+    onSave({ 
+        ...formData, 
+        consultations: updatedConsultations.sort((a,b) => b.date - a.date) 
+    });
+
+    setTimeout(() => setSaving(false), 800);
+};
+
+
 
             return (
                 <form className="space-y-6 animate-fade-in" onSubmit={handleSubmit}>
@@ -645,7 +670,15 @@ updatedConsultations.push({
 
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
                         <Button variant="danger" onClick={onCancel} className="flex-1">Cancelar</Button>
-                        <Button type="submit" className="flex-1 md:w-48"><Save size={18} /> Guardar</Button>
+                        <Button
+    type="submit"
+    className="flex-1 md:w-48"
+    disabled={saving}
+>
+    <Save size={18} />
+    {saving ? "Guardando…" : "Guardar"}
+</Button>
+
                     </div>
                 </form>
             );
