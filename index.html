@@ -482,7 +482,8 @@
         };
 
         const PatientForm = ({ initialData, onSave, onCancel, options }) => {
-            const [formData, setFormData] = useState({
+            const [formData, setFormData] = useState({ const [saving, setSaving] = useState(false);
+
                 firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
                 neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
             });
@@ -524,7 +525,8 @@
             };
 
             const handleSubmit = (e) => {
-                e.preventDefault();
+                e.preventDefault(); setSaving(true);
+
                 let updatedConsultations = [...(formData.consultations || [])];
                 const { weight, height, headCircumference, notes, motive } = newConsultation;
                 if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
@@ -539,6 +541,8 @@ updatedConsultations.push({
                 }
                 onSave({ ...formData, consultations: updatedConsultations.sort((a,b) => b.date - a.date) });
             }
+            setTimeout(() => setSaving(false), 800);
+
 
             return (
                 <form className="space-y-6 animate-fade-in" onSubmit={handleSubmit}>
@@ -656,7 +660,15 @@ updatedConsultations.push({
 
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
                         <Button variant="danger" onClick={onCancel} className="flex-1">Cancelar</Button>
-                        <Button type="submit" className="flex-1 md:w-48"><Save size={18} /> Guardar</Button>
+                        <Button
+    type="submit"
+    className="flex-1 md:w-48"
+    disabled={saving}
+>
+    <Save size={18} />
+    {saving ? "Guardando…" : "Guardar"}
+</Button>
+
                     </div>
                 </form>
             );
