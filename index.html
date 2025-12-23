@@ -34,6 +34,8 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
 
         const firebaseConfig = {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
@@ -52,6 +54,11 @@
             if (app) {
                 auth = getAuth(app);
                 db = getFirestore(app);
+                enableIndexedDbPersistence(db)
+  .catch((err) => {
+    console.warn("Firestore offline no disponible:", err.code);
+  });
+
             }
         } catch (e) {
             console.error("Error inicializando Firebase:", e);
