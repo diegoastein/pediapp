@@ -564,6 +564,22 @@
                                 <input type="number" step="0.1" placeholder="Talla" className="p-2 border rounded-lg text-center" value={newConsultation.height} onChange={e => setNewConsultation(p=>({...p, height:e.target.value}))} />
                                 <input type="number" step="0.1" placeholder="P.C." className="p-2 border rounded-lg text-center" value={newConsultation.headCircumference} onChange={e => setNewConsultation(p=>({...p, headCircumference:e.target.value}))} />
                             </div>
+                            {formData.birthDate && newConsultation.date && (
+  <div className="text-xs text-slate-500 mb-1">
+    Edad del paciente en esta consulta:{" "}
+    <strong>
+      {calculateAgeAtDate(
+        formData.birthDate,
+        new Date(
+          ...newConsultation.date.split("-").map((v, i) =>
+            i === 1 ? Number(v) - 1 : Number(v)
+          )
+        ).getTime()
+      )}
+    </strong>
+  </div>
+)}
+
                             <textarea className="w-full p-3 border rounded-lg h-24 text-sm" placeholder="Evolución clínica..." value={newConsultation.notes} onChange={e => setNewConsultation(p=>({...p, notes:e.target.value}))}></textarea>
                         </div>
 
