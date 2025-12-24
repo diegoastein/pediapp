@@ -736,7 +736,8 @@ const handleSubmit = (e) => {
                             <h3 className="font-bold text-lg text-slate-700">Archivos</h3>
                             <Button variant="secondary" onClick={()=>galleryInputRef.current.click()}><Upload size={16}/> Subir</Button>
                         </div>
-                        <input type="file" ref={galleryInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                        <input type="file" ref={galleryInputRef} className="hidden" accept="image/*"   capture="environment"
+ onChange={handleImageUpload} />
                         <div className="grid grid-cols-4 gap-2">
                             {(formData.images || []).map(img => (
                                 <div key={img.id} className="relative aspect-square border rounded-lg overflow-hidden bg-slate-100 cursor-pointer" onClick={()=>setModalImageSrc(img.src)}>
