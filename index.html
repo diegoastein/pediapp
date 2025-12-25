@@ -582,6 +582,8 @@ function downloadBackup(data) {
             const [newPending, setNewPending] = useState("");
             const [modalImageSrc, setModalImageSrc] = useState(null); 
             const galleryInputRef = useRef(null);
+            const cameraInputRef = useRef(null);
+
 
             useEffect(() => {
                 if (initialData) setFormData({ ...initialData });
@@ -734,10 +736,42 @@ const handleSubmit = (e) => {
                     <Card>
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-lg text-slate-700">Archivos</h3>
-                            <Button variant="secondary" onClick={()=>galleryInputRef.current.click()}><Upload size={16}/> Subir</Button>
+                            <div className="flex gap-2">
+  <Button
+    variant="secondary"
+    onClick={() => cameraInputRef.current.click()}
+    className="flex-1"
+  >
+    📷 Foto
+  </Button>
+
+  <Button
+    variant="secondary"
+    onClick={() => galleryInputRef.current.click()}
+    className="flex-1"
+  >
+    🖼️ Galería
+  </Button>
+</div>
+
                         </div>
-                        <input type="file" ref={galleryInputRef} className="hidden" accept="image/*"   capture="environment"
- onChange={handleImageUpload} />
+                        <input
+  type="file"
+  ref={galleryInputRef}
+  className="hidden"
+  accept="image/*"
+  onChange={handleImageUpload}
+/>
+
+<input
+  type="file"
+  ref={cameraInputRef}
+  className="hidden"
+  accept="image/*"
+  capture="environment"
+  onChange={handleImageUpload}
+/>
+
                         <div className="grid grid-cols-4 gap-2">
                             {(formData.images || []).map(img => (
                                 <div key={img.id} className="relative aspect-square border rounded-lg overflow-hidden bg-slate-100 cursor-pointer" onClick={()=>setModalImageSrc(img.src)}>
