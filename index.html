@@ -583,6 +583,8 @@ function downloadBackup(data) {
             const [modalImageSrc, setModalImageSrc] = useState(null); 
             const galleryInputRef = useRef(null);
             const cameraInputRef = useRef(null);
+            const [showHistory, setShowHistory] = useState(false);
+
 
 
             useEffect(() => {
@@ -702,18 +704,42 @@ const handleSubmit = (e) => {
                         </div>
 
                         <div className="mt-6 space-y-3">
-                            <h4 className="font-bold text-slate-700 text-sm">Historial</h4>
-                            {(formData.consultations || []).map(c => (
-                                <div key={c.id} className="p-3 border rounded-lg text-xs bg-white shadow-sm">
-                                    <div className="flex justify-between font-bold text-sky-600 mb-1">
-                                        <span>{formatDate(c.date)}</span>
-                                        <span>Edad: {calculateAgeAtDate(formData.birthDate, c.date)}</span>
-                                    </div>
-                                    <p className="font-semibold text-slate-700">M: {c.motive?.join(', ') || 'N/A'}</p>
-                                    <p className="text-slate-500">P: {c.weight}kg | T: {c.height}cm | PC: {c.headCircumference}</p>
-                                    <p className="mt-1 italic">{c.notes}</p>
-                                </div>
-                            ))}
+                            <button
+  type="button"
+  onClick={() => setShowHistory(v => !v)}
+  className="w-full flex justify-between items-center font-bold text-slate-700 text-sm"
+>
+  <span>
+    Historial
+    {formData.consultations?.length > 0 && (
+      <span className="ml-2 text-xs text-slate-500">
+        ({formData.consultations.length})
+      </span>
+    )}
+  </span>
+  <span className="text-slate-400">
+    {showHistory ? "▲" : "▼"}
+  </span>
+</button>
+
+                            {showHistory && (
+  (formData.consultations || []).map(c => (
+    <div key={c.id} className="p-3 border rounded-lg text-xs bg-white shadow-sm">
+      <div className="flex justify-between font-bold text-sky-600 mb-1">
+        <span>{formatDate(c.date)}</span>
+        <span>Edad: {calculateAgeAtDate(formData.birthDate, c.date)}</span>
+      </div>
+      <p className="font-semibold text-slate-700">
+        M: {c.motive?.join(', ') || 'N/A'}
+      </p>
+      <p className="text-slate-500">
+        P: {c.weight}kg | T: {c.height}cm | PC: {c.headCircumference}
+      </p>
+      <p className="mt-1 italic">{c.notes}</p>
+    </div>
+  ))
+)}
+
                         </div>
                     </Card>
 
