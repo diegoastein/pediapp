@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>H.C. Dra. Abraldes</title>
     
-    <!-- Scripts de Producción -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -19,7 +18,7 @@
         body { font-family: 'Nunito', sans-serif; background-color: #f0f9ff; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
     </style>
 </head>
 <body>
@@ -27,10 +26,11 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, enableIndexedDbPersistence, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
+        // Variables de entorno o fallback
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
             authDomain: "pediapp-61b0c.firebaseapp.com",
             projectId: "pediapp-61b0c",
@@ -42,13 +42,14 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = "historia-clinica-v1";
+        const appId = typeof __app_id !== 'undefined' ? __app_id : "historia-clinica-v1";
 
         enableIndexedDbPersistence(db).catch(() => {});
 
         window.firebaseData = { 
-            auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
+            auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
+            signOut, signInWithCustomToken, signInAnonymously,
+            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, query 
         };
     </script>
 
@@ -72,9 +73,9 @@
         const Activity = (p) => <Icon {...p}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
         const Stethoscope = (p) => <Icon {...p}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></Icon>;
         const CheckCircle = (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10.01-3-3"/></Icon>;
+        const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></Icon>;
         const X = (p) => <Icon {...p}><path d="M18 6 6 18M6 6l12 12"/></Icon>;
 
-        // --- Utils ---
         const calculateAge = (b) => {
             if(!b) return "";
             const t = new Date(), br = new Date(b);
@@ -90,11 +91,8 @@
             const [input, setInput] = useState("");
             const [isOpen, setIsOpen] = useState(false);
             const handleAdd = (tag) => {
-                if (tag.trim() && !value.includes(tag.trim())) {
-                    onChange([...value, tag.trim()]);
-                }
-                setInput("");
-                setIsOpen(false);
+                if (tag.trim() && !value.includes(tag.trim())) onChange([...value, tag.trim()]);
+                setInput(""); setIsOpen(false);
             };
             return (
                 <div className="space-y-1 relative">
@@ -121,7 +119,7 @@
         };
 
         const App = () => {
-            const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
+            const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, query } = window.firebaseData;
             
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
@@ -130,18 +128,50 @@
             const [searchTerm, setSearchTerm] = useState("");
             const [authForm, setAuthForm] = useState({email:'', pass:'', reg: false, err: ''});
             const [currentPatient, setCurrentPatient] = useState(null);
+            const [errorMsg, setErrorMsg] = useState("");
             const fileInputRef = useRef(null);
 
+            // (1) Auth Effect - Mandatory Pattern
             useEffect(() => {
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        }
+                        // Dejamos que el usuario use email/password si ya lo tiene, 
+                        // sino el listener onAuthStateChanged capturará el estado.
+                    } catch (e) { console.error("Auth Error:", e); }
+                };
+                initAuth();
                 return onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
             }, []);
 
+            // (2) Data Fetching - Mandatory Pattern
             useEffect(() => {
-                if(!user) return;
+                if(!user) {
+                    setPatients([]);
+                    return;
+                }
+                
+                // RUTA CRÍTICA: artifacts/{appId}/users/{userId}/patients
                 const colPath = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                return onSnapshot(colPath, s => {
-                    setPatients(s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0)));
-                }, (err) => console.error(err));
+                const q = query(colPath);
+
+                const unsubscribe = onSnapshot(q, 
+                    (s) => {
+                        setPatients(s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)));
+                        setErrorMsg("");
+                    }, 
+                    (err) => {
+                        console.error("Firestore Error:", err);
+                        if (err.code === 'permission-denied') {
+                            setErrorMsg("ERROR DE PERMISOS: Debes actualizar las REGLAS en tu consola de Firebase Firestore.");
+                        } else {
+                            setErrorMsg("Error: " + err.message);
+                        }
+                    }
+                );
+                return () => unsubscribe();
             }, [user]);
 
             const handleAuth = async (e) => {
@@ -151,7 +181,23 @@
                 try {
                     if(authForm.reg) await createUserWithEmailAndPassword(auth, authForm.email, authForm.pass);
                     else await signInWithEmailAndPassword(auth, authForm.email, authForm.pass);
-                } catch(err) { setAuthForm(p=>({...p, err: "Error de acceso: revise sus datos"})); }
+                } catch(err) { setAuthForm(p=>({...p, err: "Email o contraseña incorrectos"})); }
+                setLoading(false);
+            };
+
+            const handleSave = async (data) => {
+                if (!user) return;
+                setLoading(true);
+                const col = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+                const toSave = {...data, updatedAt: serverTimestamp()};
+                try {
+                    if(currentPatient?.id) await updateDoc(doc(col, currentPatient.id), toSave);
+                    else await addDoc(col, {...toSave, createdAt: serverTimestamp()});
+                    setView("list");
+                    setCurrentPatient(null);
+                } catch(e) { 
+                    alert(e.code === 'permission-denied' ? "Error: No tienes permiso para escribir. Revisa las Reglas de Firebase." : e.message);
+                }
                 setLoading(false);
             };
 
@@ -177,13 +223,13 @@
                             const { id, ...cleanData } = p;
                             await addDoc(col, { ...cleanData, updatedAt: serverTimestamp() });
                         }
-                        alert("Sincronización manual finalizada.");
-                    } catch (err) { alert("Error: " + err.message); }
+                        alert("Sincronización finalizada.");
+                    } catch (err) { alert("Error al importar: " + err.message); }
                 };
                 reader.readAsText(file);
             };
 
-            if(loading) return <div className="h-screen flex items-center justify-center text-sky-500 font-bold">Iniciando...</div>;
+            if(loading) return <div className="h-screen flex items-center justify-center text-sky-500 font-bold">Cargando...</div>;
 
             if(!user) return (
                 <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -191,15 +237,15 @@
                         <div className="flex flex-col items-center mb-6">
                             <div className="bg-sky-50 p-4 rounded-full text-sky-500 mb-3"><Stethoscope size={40}/></div>
                             <h1 className="text-2xl font-bold text-slate-800">PediApp</h1>
-                            <p className="text-slate-400 text-xs text-center mt-1">Accede a tus pacientes en todos tus dispositivos</p>
+                            <p className="text-slate-400 text-xs text-center mt-1">Tu cuenta para ver pacientes en cualquier lugar</p>
                         </div>
                         {authForm.err && <div className="bg-rose-50 text-rose-600 p-2 text-xs rounded mb-4 text-center font-bold">{authForm.err}</div>}
                         <form onSubmit={handleAuth} className="space-y-4">
-                            <input type="email" placeholder="Correo electrónico" required className="w-full p-3 bg-slate-50 rounded-lg outline-none border focus:border-sky-300" value={authForm.email} onChange={e=>setAuthForm(p=>({...p, email:e.target.value}))}/>
+                            <input type="email" placeholder="Email" required className="w-full p-3 bg-slate-50 rounded-lg outline-none border focus:border-sky-300" value={authForm.email} onChange={e=>setAuthForm(p=>({...p, email:e.target.value}))}/>
                             <input type="password" placeholder="Contraseña" required className="w-full p-3 bg-slate-50 rounded-lg outline-none border focus:border-sky-300" value={authForm.pass} onChange={e=>setAuthForm(p=>({...p, pass:e.target.value}))}/>
                             <button className="w-full bg-sky-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-sky-100">Ingresar</button>
                         </form>
-                        <button onClick={()=>setAuthForm(p=>({...p, reg:!p.reg}))} className="w-full text-xs text-slate-400 mt-4 font-bold">{authForm.reg ? '¿Ya tienes cuenta? Ingresa' : '¿No tienes cuenta? Regístrate'}</button>
+                        <button onClick={()=>setAuthForm(p=>({...p, reg:!p.reg}))} className="w-full text-xs text-slate-400 mt-4 font-bold">{authForm.reg ? 'Ya tengo cuenta' : 'Crear cuenta nueva'}</button>
                     </div>
                 </div>
             );
@@ -216,10 +262,16 @@
                         </div>
                     </header>
 
-                    <main className="p-4 flex-1 overflow-y-auto hide-scrollbar">
+                    <main className="p-4 flex-1 overflow-y-auto">
+                        {errorMsg && (
+                            <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-xl mb-4 text-xs font-bold flex gap-2">
+                                <AlertCircle size={16} className="shrink-0"/> {errorMsg}
+                            </div>
+                        )}
+
                         {view === 'list' ? (
                             <div className="space-y-4 animate-fade-in">
-                                <input placeholder="Buscar por nombre o DNI..." className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
+                                <input placeholder="Buscar paciente o DNI..." className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
                                 <button onClick={()=>{setCurrentPatient(null); setView('form');}} className="w-full bg-sky-500 text-white p-4 rounded-xl font-bold shadow-lg shadow-sky-100 flex justify-center gap-2"><Plus/> Nuevo Paciente</button>
                                 
                                 <div className="grid grid-cols-2 gap-2">
@@ -230,29 +282,22 @@
 
                                 <div className="space-y-2">
                                     {filtered.map(p => (
-                                        <div key={p.id} onClick={()=>{setCurrentPatient(p); setView('form');}} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer active:bg-sky-50 transition-all">
+                                        <div key={p.id} onClick={()=>{setCurrentPatient(p); setView('form');}} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer active:bg-sky-50">
                                             <div>
                                                 <div className="font-bold text-slate-800">{p.lastName}, {p.firstName}</div>
                                                 <div className="text-[10px] font-bold text-slate-400 uppercase">DNI: {p.dni} | {calculateAge(p.birthDate)}</div>
                                             </div>
-                                            <button onClick={(e)=>{e.stopPropagation(); confirm('¿Eliminar paciente?') && deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id));}} className="text-rose-200 p-2"><Trash2 size={18}/></button>
+                                            <button onClick={(e)=>{e.stopPropagation(); confirm('¿Eliminar?') && deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id));}} className="text-rose-200 p-2"><Trash2 size={18}/></button>
                                         </div>
                                     ))}
+                                    {patients.length > 0 && filtered.length === 0 && <p className="text-center text-slate-400 text-xs py-4">No se encontraron resultados.</p>}
+                                    {patients.length === 0 && !errorMsg && <p className="text-center text-slate-400 text-xs py-10">Tu lista está vacía. Si tenías pacientes antes, usa el botón de "Importar Backup" una única vez.</p>}
                                 </div>
                             </div>
                         ) : (
-                            <PatientForm patient={currentPatient} onCancel={()=>setView('list')} onSave={async (d)=>{
-                                const col = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                                const data = {...d, updatedAt: serverTimestamp()};
-                                try {
-                                    if(currentPatient) await updateDoc(doc(col, currentPatient.id), data);
-                                    else await addDoc(col, {...data, createdAt: serverTimestamp()});
-                                    setView('list');
-                                } catch(e) { alert("Error al guardar: " + e.message); }
-                            }}/>
+                            <PatientForm patient={currentPatient} onCancel={()=>setView('list')} onSave={handleSave}/>
                         )}
                     </main>
-                    <footer className="p-3 bg-slate-50 text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest border-t">Sincronización PediApp Activa</footer>
                 </div>
             );
         };
@@ -301,7 +346,7 @@
 
             return (
                 <form onSubmit={submit} className="space-y-5 animate-fade-in pb-10">
-                    {/* Datos del Paciente */}
+                    {/* Ficha Personal */}
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
                         <div className="flex items-center gap-2 text-sky-600 font-bold mb-2"><User size={18}/> Ficha Personal</div>
                         <div className="grid grid-cols-2 gap-3">
@@ -354,7 +399,7 @@
 
                     {/* Pendientes */}
                     <div className="bg-amber-50 p-5 rounded-2xl shadow-sm border border-amber-100">
-                        <div className="flex items-center gap-2 text-amber-700 font-bold mb-3"><AlertCircle size={18}/> Pendientes / Recordatorios</div>
+                        <div className="flex items-center gap-2 text-amber-700 font-bold mb-3"><AlertCircle size={18}/> Pendientes</div>
                         <div className="flex gap-2 mb-3">
                             <input className="flex-1 p-2 bg-white rounded-lg outline-none border border-amber-200 text-xs shadow-inner" placeholder="Escribir pendiente..." value={newPend} onChange={e=>setNewPend(e.target.value)}/>
                             <button type="button" onClick={()=>{ if(newPend){ setF(p=>({...p, pending:[...(p.pending||[]), {id:Date.now(), text:newPend}]})); setNewPend(""); } }} className="bg-amber-500 text-white p-2 rounded-lg shadow-md"><Plus size={16}/></button>
@@ -372,24 +417,24 @@
                     {/* Imágenes */}
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
                         <div className="flex justify-between items-center mb-3">
-                            <div className="font-bold text-slate-700 text-xs uppercase tracking-tight">Estudios / Fotos Clínica</div>
-                            <button type="button" onClick={()=>camRef.current.click()} className="text-sky-500 font-bold text-xs bg-sky-50 px-2 py-1 rounded hover:bg-sky-100 transition-colors">+ Agregar</button>
+                            <div className="font-bold text-slate-700 text-xs uppercase tracking-tight">Fotos / Estudios</div>
+                            <button type="button" onClick={()=>camRef.current.click()} className="text-sky-500 font-bold text-xs bg-sky-50 px-2 py-1 rounded">+ Agregar</button>
                         </div>
                         <input type="file" ref={camRef} className="hidden" accept="image/*" onChange={handleImage}/>
                         <div className="grid grid-cols-4 gap-2">
                             {f.images?.map(img => (
-                                <div key={img.id} className="aspect-square relative rounded-lg overflow-hidden border shadow-sm group">
+                                <div key={img.id} className="aspect-square relative rounded-lg overflow-hidden border shadow-sm">
                                     <img src={img.src} className="w-full h-full object-cover"/>
-                                    <button type="button" onClick={()=>setF(p=>({...p, images:p.images.filter(x=>x.id!==img.id)}))} className="absolute top-0 right-0 bg-white/90 p-1 text-rose-500 rounded-bl-lg shadow-sm"><Trash2 size={12}/></button>
+                                    <button type="button" onClick={()=>setF(p=>({...p, images:p.images.filter(x=>x.id!==img.id)}))} className="absolute top-0 right-0 bg-white/90 p-1 text-rose-500 rounded-bl-lg"><Trash2 size={12}/></button>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Acciones */}
-                    <div className="flex gap-4 sticky bottom-0 bg-white p-2 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)]">
-                        <button type="button" onClick={onCancel} className="flex-1 p-4 font-bold text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
-                        <button type="submit" disabled={isSaving} className="flex-2 bg-sky-500 text-white p-4 rounded-xl font-bold shadow-lg shadow-sky-200 flex justify-center gap-2 active:scale-95 transition-all disabled:opacity-50">
+                    {/* Botones */}
+                    <div className="flex gap-4 sticky bottom-0 bg-white p-2 border-t">
+                        <button type="button" onClick={onCancel} className="flex-1 p-4 font-bold text-slate-400">Cancelar</button>
+                        <button type="submit" disabled={isSaving} className="flex-2 bg-sky-500 text-white p-4 rounded-xl font-bold shadow-lg shadow-sky-200 flex justify-center gap-2 active:scale-95 transition-all">
                             <Save size={20}/> {isSaving ? 'Guardando...' : 'Guardar Paciente'}
                         </button>
                     </div>
