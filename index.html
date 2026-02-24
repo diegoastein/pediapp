@@ -2,23 +2,31 @@
 <html lang="es">
 <head>
     <link rel="manifest" href="manifest.json">
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>H.C. Dra. Abraldes</title>
-    
+    <title>H.C. dra Abraldes</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- React Dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230EA5E9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3'%3E%3C/path%3E%3Cpath d='M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4'%3E%3C/path%3E%3Ccircle cx='20' cy='10' r='2'%3E%3C/circle%3E%3C/svg%3E" type="image/svg+xml">
 
     <style>
         body { font-family: 'Nunito', sans-serif; background-color: #f0f9ff; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
     </style>
 </head>
 <body>
@@ -26,11 +34,11 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, enableIndexedDbPersistence, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Importamos las funciones de Auth para Email y Contraseña
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Variables de entorno o fallback
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+        const firebaseConfig = {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
             authDomain: "pediapp-61b0c.firebaseapp.com",
             projectId: "pediapp-61b0c",
@@ -39,404 +47,929 @@
             appId: "1:639384422144:web:924e5fcbf41bb2d1cd15e5"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : "historia-clinica-v1";
+        let app, auth, db;
+        const appId = "historia-clinica-v1";
 
-        enableIndexedDbPersistence(db).catch(() => {});
+        try {
+            app = initializeApp(firebaseConfig);
+            if (app) {
+                auth = getAuth(app);
+                db = getFirestore(app);
+                enableIndexedDbPersistence(db).catch((err) => {
+                    console.warn("Firestore offline no disponible:", err.code);
+                });
+            }
+        } catch (e) {
+            console.error("Error inicializando Firebase:", e);
+        }
 
         window.firebaseData = { 
-            auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
-            signOut, signInWithCustomToken, signInAnonymously,
-            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, query 
+            auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
         };
     </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo, useRef, Component } = React;
         
         // --- Icon System ---
-        const Icon = ({ children, size = 24, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" 
-                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>
+        const Icon = ({ children, size = 24, className = "", ...props }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width={size} height={size} viewBox="0 0 24 24" fill="none" 
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" 
+                strokeLinejoin="round" className={`lucide ${className}`} {...props}
+            >
+                {children}
+            </svg>
         );
 
-        const User = (p) => <Icon {...p}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Icon>;
-        const Plus = (p) => <Icon {...p}><path d="M5 12h14M12 5v14"/></Icon>;
-        const Search = (p) => <Icon {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>;
-        const Trash2 = (p) => <Icon {...p}><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></Icon>;
-        const Save = (p) => <Icon {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></Icon>;
-        const ArrowLeft = (p) => <Icon {...p}><path d="m12 19-7-7 7-7M19 12H5"/></Icon>;
-        const LogOut = (p) => <Icon {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></Icon>;
-        const Baby = (p) => <Icon {...p}><path d="M9 12h.01M15 12h.01M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3"/></Icon>;
-        const Activity = (p) => <Icon {...p}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
-        const Stethoscope = (p) => <Icon {...p}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></Icon>;
-        const CheckCircle = (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10.01-3-3"/></Icon>;
-        const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></Icon>;
-        const X = (p) => <Icon {...p}><path d="M18 6 6 18M6 6l12 12"/></Icon>;
+        const User = (props) => <Icon {...props}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Icon>;
+        const Plus = (props) => <Icon {...props}><path d="M5 12h14"/><path d="M12 5v14"/></Icon>;
+        const Search = (props) => <Icon {...props}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>;
+        const FileText = (props) => <Icon {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></Icon>;
+        const Activity = (props) => <Icon {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
+        const Trash2 = (props) => <Icon {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>;
+        const Save = (props) => <Icon {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
+        const ArrowLeft = (props) => <Icon {...props}><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></Icon>;
+        const AlertCircle = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
+        const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
+        const Baby = (props) => <Icon {...props}><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></Icon>;
+        const Stethoscope = (props) => <Icon {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></Icon>;
+        const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
+        const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
+        const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
+        const LogOut = (props) => <Icon {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></Icon>;
 
-        const calculateAge = (b) => {
-            if(!b) return "";
-            const t = new Date(), br = new Date(b);
-            let y = t.getFullYear() - br.getFullYear(), m = t.getMonth() - br.getMonth(), d = t.getDate() - br.getDate();
-            if(d<0){ m--; d += new Date(t.getFullYear(), t.getMonth(), 0).getDate(); }
-            if(m<0){ y--; m += 12; }
-            if(y>=1) return `${y}a, ${m}m`;
-            if(m>=1) return `${m}m, ${d}d`;
-            return `${d}d`;
-        };
 
-        const TagInput = ({ label, options = [], value = [], onChange, placeholder }) => {
-            const [input, setInput] = useState("");
-            const [isOpen, setIsOpen] = useState(false);
-            const handleAdd = (tag) => {
-                if (tag.trim() && !value.includes(tag.trim())) onChange([...value, tag.trim()]);
-                setInput(""); setIsOpen(false);
+        // --- Helper Functions ---
+        function calculateAge(birthDate) {
+            if (!birthDate) return "";
+            const today = new Date();
+            const birth = new Date(birthDate);
+            
+            let years = today.getFullYear() - birth.getFullYear();
+            let months = today.getMonth() - birth.getMonth();
+            let days = today.getDate() - birth.getDate();
+
+            if (days < 0) {
+                months--;
+                days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+            }
+
+            if (months < 0) {
+                years--;
+                months += 12;
+            }
+
+            if (years >= 1) return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`;
+            if (months >= 1) return `${months} mes${months !== 1 ? 'es' : ''}${days > 0 ? `, ${days} día${days !== 1 ? 's' : ''}` : ''}`;
+            if (days >= 0) return `${days} día${days !== 1 ? 's' : ''}`;
+            return "Fecha futura";
+        }
+        
+        function calculateAgeAtDate(birthDateStr, consultationDateMs) {
+            if (!birthDateStr || !consultationDateMs) return "";
+            const birth = new Date(birthDateStr);
+            const consultation = new Date(consultationDateMs);
+            let years = consultation.getFullYear() - birth.getFullYear();
+            let months = consultation.getMonth() - birth.getMonth();
+            let days = consultation.getDate() - birth.getDate();
+            if (days < 0) {
+                months--;
+                days += new Date(consultation.getFullYear(), consultation.getMonth(), 0).getDate();
+            }
+            if (months < 0) {
+                years--;
+                months += 12;
+            }
+            if (years >= 1) return `${years} a${years !== 1 ? 'ños' : 'ño'}, ${months} m${months !== 1 ? 'eses' : 'es'}`;
+            if (months >= 1) return `${months} m${months !== 1 ? 'eses' : 'es'}, ${days} d${days !== 1 ? 'ías' : 'ía'}`;
+            return `${days} d${days !== 1 ? 'ías' : 'ía'}`;
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return 'Sin fecha';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
+        }
+        
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                return true;
+            } catch (err) {
+                return false;
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function buildBackupData(patients) {
+            const now = new Date();
+            return {
+                metadata: {
+                    app: "PediApp",
+                    schemaVersion: "1.0",
+                    exportedAt: now.toISOString(),
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    patientCount: patients.length
+                },
+                patients: patients.map(p => ({
+                    patientId: p.id || `local-${Date.now()}`,
+                    identity: {
+                        firstName: p.firstName || "",
+                        lastName: p.lastName || "",
+                        dni: p.dni || "",
+                        birthDate: p.birthDate || "",
+                        phone: p.phone || ""
+                    },
+                    clinicalHistory: {
+                        neonatal: p.neonatalHistory || [],
+                        pathological: p.pathologicalHistory || []
+                    },
+                    consultations: (p.consultations || []).map(c => {
+                        const age = calculateAgeAtDate(p.birthDate, c.date);
+                        return {
+                            consultationId: c.id || `c-${Date.now()}`,
+                            date: new Date(c.date).toISOString().slice(0, 10),
+                            ageAtConsultation: { formatted: age },
+                            motive: c.motive || [],
+                            anthropometry: {
+                                weightKg: c.weight || null,
+                                heightCm: c.height || null,
+                                headCircumferenceCm: c.headCircumference || null
+                            },
+                            notes: c.notes || "",
+                            createdAt: new Date(c.date).toISOString()
+                        };
+                    }),
+                    pendingItems: (p.pendingItems || []).map(pi => ({
+                        id: pi.id || `p-${Date.now()}`,
+                        text: pi.text || "",
+                        status: "open"
+                    })),
+                    attachments: (p.images || []).map(img => ({
+                        id: img.id || `img-${Date.now()}`,
+                        type: "image/jpeg",
+                        description: "Imagen clínica",
+                        createdAt: img.date || "",
+                        data: img.src || ""
+                    }))
+                }))
+            };
+        }
+
+        function downloadBackup(data) {
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const date = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `pediapp-backup-${date}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function generatePatientSummary(patient) {
+            const age = calculateAge(patient.birthDate);
+            let summary = `--- Historia Clínica: ${patient.lastName}, ${patient.firstName} ---\n`;
+            summary += `DNI: ${patient.dni}\n`;
+            if (patient.phone) summary += `Teléfono: ${patient.phone}\n`;
+            summary += `Fecha de Nacimiento: ${patient.birthDate} (Edad: ${age})\n\n`;
+            summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            summary += `ANTECEDENTES PATOLÓGICOS:\n- ${patient.pathologicalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            if (patient.consultations?.length > 0) {
+                summary += `HISTORIAL DE CONSULTAS (${patient.consultations.length}):\n`;
+                [...patient.consultations].sort((a, b) => b.date - a.date).forEach(c => {
+                    summary += `\n--- Consulta del ${formatDate(c.date)} (Edad: ${calculateAgeAtDate(patient.birthDate, c.date)}) ---\n`;
+                    if (c.motive?.length > 0) summary += `Motivo: ${c.motive.join(', ')}\n`;
+                    if (c.weight || c.height || c.headCircumference) {
+                        summary += `Antropometría: ${c.weight || '-'}kg | ${c.height || '-'}cm | PC: ${c.headCircumference || '-'}\n`;
+                    }
+                    if (c.notes) summary += `Evolución: ${c.notes.trim().replace(/\n/g, ' | ')}\n`;
+                });
+            }
+            if (patient.pendingItems?.length > 0) {
+                summary += `\nPENDIENTES:\n- ${patient.pendingItems.map(p => p.text).join('\n- ')}\n`;
+            }
+            return summary;
+        }
+
+        // --- UI Components ---
+        const Card = ({ children, className = "", onClick }) => (
+            <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>
+                {children}
+            </div>
+        );
+
+        const Button = ({ children, onClick, variant = "primary", className = "", type = "button", disabled = false }) => {
+            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
+            const variants = {
+                primary: "bg-sky-500 text-white hover:bg-sky-600 shadow-lg shadow-sky-500/30",
+                secondary: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                danger: "bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200",
+                outline: "border-2 border-slate-200 text-slate-600 hover:border-sky-500 hover:text-sky-500"
             };
             return (
-                <div className="space-y-1 relative">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">{label}</label>
-                    <div className="flex flex-wrap gap-1 p-2 bg-slate-50 border rounded-lg min-h-[40px]">
-                        {value.map(t => (
-                            <span key={t} className="bg-sky-100 text-sky-700 text-[11px] px-2 py-1 rounded flex items-center gap-1">
-                                {t} <button type="button" onClick={() => onChange(value.filter(x => x !== t))}><X size={12}/></button>
+                <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>
+                    {children}
+                </button>
+            );
+        };
+
+        const Modal = ({ children, isOpen, onClose, title }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <Card className="p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-start border-b pb-3 mb-4">
+                            <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X size={24} /></button>
+                        </div>
+                        {children}
+                    </Card>
+                </div>
+            );
+        };
+
+        const TagInput = ({ label, options, value = [], onChange, placeholder }) => {
+            const [input, setInput] = useState("");
+            const [isOpen, setIsOpen] = useState(false);
+            
+            const handleAdd = (tag) => {
+                const cleanTag = tag.trim();
+                if (cleanTag && !value.includes(cleanTag)) {
+                    onChange([...value, cleanTag]);
+                }
+                setInput("");
+                setIsOpen(false);
+            };
+
+            const handleRemove = (tagToRemove) => {
+                onChange(value.filter(t => t !== tagToRemove));
+            };
+
+            const filteredOptions = options.filter(opt => 
+                opt.toLowerCase().includes(input.toLowerCase()) && !value.includes(opt)
+            );
+
+            return (
+                <div className="space-y-2 relative">
+                    <label className="block text-sm font-semibold text-slate-700">{label}</label>
+                    <div className="flex flex-wrap gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg min-h-[42px]">
+                        {value.map(tag => (
+                            <span key={tag} className="bg-sky-100 text-sky-700 text-sm px-2 py-1 rounded-md flex items-center gap-1">
+                                {tag}
+                                <button type="button" onClick={() => handleRemove(tag)}><X size={14} /></button>
                             </span>
                         ))}
-                        <input type="text" className="bg-transparent outline-none text-xs flex-1" placeholder={placeholder} value={input}
-                               onChange={e => { setInput(e.target.value); setIsOpen(true); }} onFocus={() => setIsOpen(true)}/>
+                        <input
+                            type="text" value={input}
+                            onChange={(e) => { setInput(e.target.value); setIsOpen(true); }}
+                            onFocus={() => setIsOpen(true)}
+                            onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && input.trim()) {
+                                    e.preventDefault();
+                                    handleAdd(input.trim());
+                                }
+                            }}
+                            className="bg-transparent outline-none flex-1 min-w-[120px] text-sm"
+                            placeholder={placeholder}
+                        />
                     </div>
-                    {isOpen && input && (
-                        <div className="absolute z-30 w-full bg-white border shadow-lg rounded-lg mt-1 max-h-32 overflow-y-auto">
-                            <div className="p-2 text-xs text-sky-600 font-bold border-b cursor-pointer" onMouseDown={() => handleAdd(input)}>Agregar "{input}"</div>
-                            {options.filter(o => o.toLowerCase().includes(input.toLowerCase()) && !value.includes(o)).map(o => (
-                                <div key={o} className="p-2 text-xs hover:bg-slate-50 cursor-pointer" onMouseDown={() => handleAdd(o)}>{o}</div>
+                    {isOpen && (input.length > 0 || filteredOptions.length > 0) && (
+                        <div className="absolute z-10 top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
+                            {filteredOptions.map(opt => (
+                                <div key={opt} className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-slate-700" onMouseDown={() => handleAdd(opt)}>
+                                    {opt}
+                                </div>
                             ))}
+                            {input.trim() && !filteredOptions.includes(input.trim()) && (
+                                <div className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-sky-600 font-medium border-t border-slate-100" onMouseDown={() => handleAdd(input.trim())}>
+                                    Agregar "{input}"
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             );
         };
 
+        const ListShareModal = ({ patient, onClose }) => {
+            const [copied, setCopied] = useState(false);
+            if (!patient) return null;
+            const summary = generatePatientSummary(patient);
+            const handleCopy = () => {
+                if (copyToClipboard(summary)) {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }
+            };
+            return (
+                <Modal isOpen={!!patient} onClose={onClose} title={`Compartir de ${patient.lastName}`}>
+                    <div className="max-h-80 overflow-y-auto bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+                        <pre className="text-xs whitespace-pre-wrap font-mono text-slate-800">{summary}</pre>
+                    </div>
+                    <Button variant="primary" onClick={handleCopy} className={`w-full ${copied ? 'bg-emerald-500' : ''}`}>
+                        {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
+                        {copied ? '¡Copiado!' : 'Copiar Texto'}
+                    </Button>
+                </Modal>
+            );
+        };
+
+        // --- Main App ---
         const App = () => {
-            const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, query } = window.firebaseData;
-            
             const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(true);
+            
+            // Auth States
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [isRegistering, setIsRegistering] = useState(false);
+            const [authError, setAuthError] = useState('');
+            const [dbError, setDbError] = useState(''); // Nuevo estado para errores de Firebase Rules
+            
             const [view, setView] = useState("list");
             const [patients, setPatients] = useState([]);
-            const [searchTerm, setSearchTerm] = useState("");
-            const [authForm, setAuthForm] = useState({email:'', pass:'', reg: false, err: ''});
             const [currentPatient, setCurrentPatient] = useState(null);
-            const [errorMsg, setErrorMsg] = useState("");
+            const [searchTerm, setSearchTerm] = useState("");
+            const [loading, setLoading] = useState(true);
+            const [sharePatientData, setSharePatientData] = useState(null); 
+            
             const fileInputRef = useRef(null);
 
-            // (1) Auth Effect - Mandatory Pattern
-            useEffect(() => {
-                const initAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        }
-                        // Dejamos que el usuario use email/password si ya lo tiene, 
-                        // sino el listener onAuthStateChanged capturará el estado.
-                    } catch (e) { console.error("Auth Error:", e); }
-                };
-                initAuth();
-                return onAuthStateChanged(auth, u => { setUser(u); setLoading(false); });
-            }, []);
+            // IMPORTANTE: Aseguramos tener el appId
+            const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
 
-            // (2) Data Fetching - Mandatory Pattern
+            // Repertorio Dinámico
+            const dynamicRepertoire = useMemo(() => {
+                const baseNeonatal = ["Prematuro", "Bajo peso al nacer", "Ictericia", "Distrés respiratorio", "Sano"];
+                const basePathological = ["Asma", "Alergias", "Diabetes", "Otitis recurrente", "Convulsiones", "Celiaquía"];
+                const baseReasons = ["Control de Niño Sano", "Fiebre", "Tos", "Dolor de Oído", "Erupción Cutánea", "Vacunación"];
+                
+                const neonatal = new Set(baseNeonatal);
+                const pathological = new Set(basePathological);
+                const reasons = new Set(baseReasons);
+
+                patients.forEach(p => {
+                    p.neonatalHistory?.forEach(v => neonatal.add(v));
+                    p.pathologicalHistory?.forEach(v => pathological.add(v));
+                    p.consultations?.forEach(c => c.motive?.forEach(v => reasons.add(v)));
+                });
+
+                return {
+                    neonatal: Array.from(neonatal).sort(),
+                    pathological: Array.from(pathological).sort(),
+                    reasons: Array.from(reasons).sort()
+                };
+            }, [patients]);
+
+            // Auth Listener
             useEffect(() => {
-                if(!user) {
+                if (!auth) return;
+                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                    setUser(currentUser);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, [auth]);
+
+            // Fetch Patients
+            useEffect(() => {
+                if (!user || !db) {
                     setPatients([]);
                     return;
                 }
                 
-                // RUTA CRÍTICA: artifacts/{appId}/users/{userId}/patients
-                const colPath = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                const q = query(colPath);
-
-                const unsubscribe = onSnapshot(q, 
-                    (s) => {
-                        setPatients(s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)));
-                        setErrorMsg("");
-                    }, 
-                    (err) => {
-                        console.error("Firestore Error:", err);
-                        if (err.code === 'permission-denied') {
-                            setErrorMsg("ERROR DE PERMISOS: Debes actualizar las REGLAS en tu consola de Firebase Firestore.");
-                        } else {
-                            setErrorMsg("Error: " + err.message);
-                        }
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+                return onSnapshot(colRef, (snapshot) => {
+                    const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    loaded.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+                    setPatients(loaded);
+                    setDbError(''); // Limpia el error si logra conectar
+                }, (error) => {
+                    console.error("Error al obtener pacientes:", error);
+                    if (error.code === 'permission-denied') {
+                        setDbError('Error de Permisos: Tu Firebase no permite el acceso. Debes actualizar las "Rules" (Reglas) en tu consola de Firestore Database.');
+                    } else {
+                        setDbError(error.message);
                     }
-                );
-                return () => unsubscribe();
-            }, [user]);
+                });
+            }, [user, db, appId]);
 
+            // Handlers Auth
             const handleAuth = async (e) => {
                 e.preventDefault();
+                setAuthError('');
                 setLoading(true);
-                setAuthForm(p => ({...p, err:''}));
                 try {
-                    if(authForm.reg) await createUserWithEmailAndPassword(auth, authForm.email, authForm.pass);
-                    else await signInWithEmailAndPassword(auth, authForm.email, authForm.pass);
-                } catch(err) { setAuthForm(p=>({...p, err: "Email o contraseña incorrectos"})); }
-                setLoading(false);
+                    if (isRegistering) {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                    } else {
+                        await signInWithEmailAndPassword(auth, email, password);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (err.code === 'auth/operation-not-allowed') {
+                        setAuthError("Error: Debes ir a Firebase Console -> Authentication -> Sign-in method y habilitar 'Correo/Contraseña'.");
+                    } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+                        setAuthError("Email o contraseña incorrectos.");
+                    } else if (err.code === 'auth/email-already-in-use') {
+                        setAuthError("El correo ya está en uso.");
+                    } else {
+                        setAuthError(err.message);
+                    }
+                } finally {
+                    setLoading(false);
+                }
             };
 
             const handleSave = async (data) => {
-                if (!user) return;
+                if (!user || !db) return;
                 setLoading(true);
-                const col = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                const toSave = {...data, updatedAt: serverTimestamp()};
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+                const toSave = { ...data, updatedAt: navigator.onLine ? serverTimestamp() : Date.now() };
+
                 try {
-                    if(currentPatient?.id) await updateDoc(doc(col, currentPatient.id), toSave);
-                    else await addDoc(col, {...toSave, createdAt: serverTimestamp()});
+                    if (currentPatient?.id) {
+                        await updateDoc(doc(colRef, currentPatient.id), toSave);
+                    } else {
+                        await addDoc(colRef, { ...toSave, createdAt: navigator.onLine ? serverTimestamp() : Date.now() });
+                    }
                     setView("list");
                     setCurrentPatient(null);
-                } catch(e) { 
-                    alert(e.code === 'permission-denied' ? "Error: No tienes permiso para escribir. Revisa las Reglas de Firebase." : e.message);
+                } catch (e) { 
+                    console.error("Error al guardar en DB:", e);
+                    if (e.code === 'permission-denied') {
+                        alert("Error de Permisos: Ve a tu consola de Firebase -> Firestore Database -> Reglas (Rules) y permite el acceso a usuarios autenticados.");
+                    } else {
+                        alert("Error al guardar: " + e.message); 
+                    }
                 }
                 setLoading(false);
             };
 
-            const exportBackup = () => {
-                const data = JSON.stringify(patients, null, 2);
-                const blob = new Blob([data], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `pediapp-backup-${new Date().toISOString().split('T')[0]}.json`;
-                a.click();
-            };
-
-            const importBackup = (e) => {
+            const handleImport = async (e) => {
                 const file = e.target.files[0];
                 if (!file || !user) return;
+                setLoading(true);
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     try {
-                        const imported = JSON.parse(event.target.result);
-                        const col = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                        for (const p of imported) {
-                            const { id, ...cleanData } = p;
-                            await addDoc(col, { ...cleanData, updatedAt: serverTimestamp() });
+                        const data = JSON.parse(event.target.result);
+                        if (data && data.patients && Array.isArray(data.patients)) {
+                            const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+                            let count = 0;
+                            for (const p of data.patients) {
+                                // Mapeamos desde el formato del backup de vuelta al formato de la app
+                                const newPatient = {
+                                    firstName: p.identity?.firstName || '',
+                                    lastName: p.identity?.lastName || '',
+                                    dni: p.identity?.dni || '',
+                                    birthDate: p.identity?.birthDate || '',
+                                    phone: p.identity?.phone || '',
+                                    neonatalHistory: p.clinicalHistory?.neonatal || [],
+                                    pathologicalHistory: p.clinicalHistory?.pathological || [],
+                                    pendingItems: p.pendingItems?.map(pi => ({ id: pi.id, text: pi.text })) || [],
+                                    images: p.attachments?.map(att => ({ id: att.id, src: att.data, date: att.createdAt })) || [],
+                                    consultations: p.consultations?.map(c => ({
+                                        id: c.consultationId || Date.now() + Math.random(),
+                                        date: c.createdAt ? new Date(c.createdAt).getTime() : new Date(c.date).getTime(),
+                                        motive: c.motive || [],
+                                        weight: c.anthropometry?.weightKg || '',
+                                        height: c.anthropometry?.heightCm || '',
+                                        headCircumference: c.anthropometry?.headCircumferenceCm || '',
+                                        notes: c.notes || ''
+                                    })) || [],
+                                    createdAt: serverTimestamp(),
+                                    updatedAt: serverTimestamp()
+                                };
+                                await addDoc(colRef, newPatient);
+                                count++;
+                            }
+                            alert(`✅ Se importaron ${count} pacientes correctamente a tu cuenta.`);
+                        } else {
+                            alert("❌ El archivo no tiene el formato correcto.");
                         }
-                        alert("Sincronización finalizada.");
-                    } catch (err) { alert("Error al importar: " + err.message); }
+                    } catch (err) {
+                        console.error("Error importando:", err);
+                        if (err.code === 'permission-denied') {
+                            alert("❌ Error de Permisos: Tu Firebase no tiene habilitadas las Reglas de escritura.");
+                        } else {
+                            alert("❌ Error al leer el archivo de backup.");
+                        }
+                    } finally {
+                        setLoading(false);
+                        if (fileInputRef.current) fileInputRef.current.value = null;
+                    }
                 };
                 reader.readAsText(file);
             };
 
-            if(loading) return <div className="h-screen flex items-center justify-center text-sky-500 font-bold">Cargando...</div>;
-
-            if(!user) return (
-                <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-sm p-8 rounded-2xl shadow-xl border border-slate-100">
-                        <div className="flex flex-col items-center mb-6">
-                            <div className="bg-sky-50 p-4 rounded-full text-sky-500 mb-3"><Stethoscope size={40}/></div>
-                            <h1 className="text-2xl font-bold text-slate-800">PediApp</h1>
-                            <p className="text-slate-400 text-xs text-center mt-1">Tu cuenta para ver pacientes en cualquier lugar</p>
-                        </div>
-                        {authForm.err && <div className="bg-rose-50 text-rose-600 p-2 text-xs rounded mb-4 text-center font-bold">{authForm.err}</div>}
-                        <form onSubmit={handleAuth} className="space-y-4">
-                            <input type="email" placeholder="Email" required className="w-full p-3 bg-slate-50 rounded-lg outline-none border focus:border-sky-300" value={authForm.email} onChange={e=>setAuthForm(p=>({...p, email:e.target.value}))}/>
-                            <input type="password" placeholder="Contraseña" required className="w-full p-3 bg-slate-50 rounded-lg outline-none border focus:border-sky-300" value={authForm.pass} onChange={e=>setAuthForm(p=>({...p, pass:e.target.value}))}/>
-                            <button className="w-full bg-sky-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-sky-100">Ingresar</button>
-                        </form>
-                        <button onClick={()=>setAuthForm(p=>({...p, reg:!p.reg}))} className="w-full text-xs text-slate-400 mt-4 font-bold">{authForm.reg ? 'Ya tengo cuenta' : 'Crear cuenta nueva'}</button>
-                    </div>
-                </div>
+            const filtered = patients.filter(p => 
+                `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase())
             );
+            const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
 
-            const filtered = patients.filter(p => `${p.lastName} ${p.firstName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase()));
+            if (loading && !authError) return <div className="h-screen flex items-center justify-center text-slate-500 font-bold">Cargando...</div>;
 
+            // LOGIN SCREEN
+            if (!user) {
+                return (
+                    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                        <Card className="w-full max-w-md p-8 shadow-xl">
+                            <div className="flex flex-col items-center gap-3 mb-8">
+                                <div className="bg-sky-100 p-4 rounded-full text-sky-600">
+                                    <Stethoscope size={40} />
+                                </div>
+                                <h1 className="text-2xl font-bold tracking-tight text-slate-800">PediApp</h1>
+                                <p className="text-slate-500 text-sm text-center">Inicia sesión para acceder a tus pacientes desde cualquier navegador o dispositivo.</p>
+                            </div>
+
+                            {authError && <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-sm mb-4 text-center font-semibold">{authError}</div>}
+
+                            <form className="space-y-4" onSubmit={handleAuth}>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
+                                    <input type="email" required className="w-full p-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-sky-500 outline-none transition-all" value={email} onChange={e => setEmail(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña</label>
+                                    <input type="password" required minLength="6" className="w-full p-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-sky-500 outline-none transition-all" value={password} onChange={e => setPassword(e.target.value)} />
+                                </div>
+                                <Button type="submit" className="w-full py-3 mt-2">{isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'}</Button>
+                            </form>
+
+                            <div className="mt-6 text-center">
+                                <button type="button" onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }} className="text-sky-600 text-sm font-bold hover:underline">
+                                    {isRegistering ? '¿Ya tienes cuenta? Inicia sesión aquí' : '¿No tienes cuenta? Regístrate aquí'}
+                                </button>
+                            </div>
+                        </Card>
+                    </div>
+                );
+            }
+
+            // MAIN APP RENDER
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-white shadow-2xl flex flex-col relative">
-                    <header className="bg-white p-4 sticky top-0 z-20 border-b flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-sky-500"><Baby size={24}/><h1 className="font-bold text-slate-800 text-sm">H.C. Dra. Abraldes</h1></div>
-                        <div className="flex gap-1">
-                            {view === 'form' && <button onClick={()=>setView('list')} className="text-slate-400 p-2"><ArrowLeft size={20}/></button>}
-                            <button onClick={()=>confirm('¿Cerrar sesión?') && signOut(auth)} className="text-slate-300 p-2"><LogOut size={20}/></button>
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl">
+                    {sharePatientData && <ListShareModal patient={sharePatientData} onClose={() => setSharePatientData(null)} />}
+                    
+                    <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sky-600">
+                            <Baby size={28} strokeWidth={2.5} />
+                            <h1 className="text-xl font-bold tracking-tight text-slate-800">H.C. dra Abraldes</h1>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {view === 'form' && <Button variant="secondary" onClick={() => setView('list')} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>}
+                            {view === 'list' && (
+                                <button onClick={() => {if(confirm("¿Cerrar sesión?")) signOut(auth)}} className="text-slate-400 hover:text-rose-500 p-2 transition-colors rounded-full hover:bg-rose-50">
+                                    <LogOut size={20} />
+                                </button>
+                            )}
                         </div>
                     </header>
 
-                    <main className="p-4 flex-1 overflow-y-auto">
-                        {errorMsg && (
-                            <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-xl mb-4 text-xs font-bold flex gap-2">
-                                <AlertCircle size={16} className="shrink-0"/> {errorMsg}
+                    <main className="p-4">
+                        {dbError && (
+                            <div className="bg-rose-50 border border-rose-200 text-rose-600 p-4 rounded-xl text-sm mb-4 font-bold flex items-start gap-2 shadow-sm">
+                                <AlertCircle size={20} className="shrink-0 mt-0.5" />
+                                <div>
+                                    <p>{dbError}</p>
+                                    <p className="font-normal mt-1 text-xs">Asegúrate de configurar correctamente las Reglas en Firebase (ver instrucciones en el chat).</p>
+                                </div>
                             </div>
                         )}
 
                         {view === 'list' ? (
-                            <div className="space-y-4 animate-fade-in">
-                                <input placeholder="Buscar paciente o DNI..." className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
-                                <button onClick={()=>{setCurrentPatient(null); setView('form');}} className="w-full bg-sky-500 text-white p-4 rounded-xl font-bold shadow-lg shadow-sky-100 flex justify-center gap-2"><Plus/> Nuevo Paciente</button>
-                                
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button onClick={exportBackup} className="text-[10px] font-bold bg-slate-50 text-slate-400 p-2 rounded-lg uppercase">⬇️ Exportar Backup</button>
-                                    <button onClick={()=>fileInputRef.current.click()} className="text-[10px] font-bold bg-slate-50 text-slate-400 p-2 rounded-lg uppercase">⬆️ Importar Backup</button>
-                                    <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={importBackup}/>
+                            <div className="space-y-6">
+                                <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                                        <input 
+                                            type="text" placeholder="Buscar paciente..." 
+                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none border border-transparent focus:border-sky-300 focus:bg-white"
+                                            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full justify-center"><Plus size={20} /> Nuevo Paciente</Button>
+                                    
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="secondary"
+                                            className="flex-1 justify-center text-xs"
+                                            onClick={() => {
+                                                const backup = buildBackupData(patients);
+                                                downloadBackup(backup);
+                                            }}
+                                        >
+                                            ⬇️ Exportar backup
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            className="flex-1 justify-center text-xs bg-sky-50 text-sky-700 hover:bg-sky-100"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            ⬆️ Importar backup
+                                        </Button>
+                                        <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
+                                    </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    {filtered.map(p => (
-                                        <div key={p.id} onClick={()=>{setCurrentPatient(p); setView('form');}} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer active:bg-sky-50">
-                                            <div>
-                                                <div className="font-bold text-slate-800">{p.lastName}, {p.firstName}</div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase">DNI: {p.dni} | {calculateAge(p.birthDate)}</div>
+                                <div className="space-y-3">
+                                    {listToRender.map(p => (
+                                        <Card key={p.id} className="group relative cursor-pointer" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                            <div className="pr-20">
+                                                <h3 className="font-bold text-lg text-slate-800">{p.lastName}, {p.firstName}</h3>
+                                                <p className="text-slate-500 text-sm">DNI: {p.dni} {p.phone && `| Tel: ${p.phone}`}</p>
+                                                <div className="mt-2 flex gap-2">
+                                                    <span className="bg-sky-50 text-sky-700 px-2 py-1 rounded text-[10px] font-bold uppercase">{calculateAge(p.birthDate)}</span>
+                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[10px] font-bold">Pendientes: {p.pendingItems.length}</span>}
+                                                </div>
                                             </div>
-                                            <button onClick={(e)=>{e.stopPropagation(); confirm('¿Eliminar?') && deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id));}} className="text-rose-200 p-2"><Trash2 size={18}/></button>
-                                        </div>
+                                            
+                                            {/* Iconos siempre visibles */}
+                                            <div className="absolute top-4 right-2 flex gap-1 z-10">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }}
+                                                    className="text-sky-500 p-2 rounded-full bg-slate-50 hover:bg-sky-100 transition-all shadow-sm"
+                                                    title="Compartir"
+                                                >
+                                                    <Share2 size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={async (e) => { 
+                                                        e.stopPropagation(); 
+                                                        if(confirm("¿Eliminar?")) {
+                                                            try {
+                                                                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id));
+                                                            } catch(err) {
+                                                                alert(err.code === 'permission-denied' ? 'Error de permisos al eliminar. Revisa las reglas de Firestore.' : err.message);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="text-rose-400 p-2 rounded-full bg-slate-50 hover:bg-rose-100 transition-all shadow-sm"
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </Card>
                                     ))}
-                                    {patients.length > 0 && filtered.length === 0 && <p className="text-center text-slate-400 text-xs py-4">No se encontraron resultados.</p>}
-                                    {patients.length === 0 && !errorMsg && <p className="text-center text-slate-400 text-xs py-10">Tu lista está vacía. Si tenías pacientes antes, usa el botón de "Importar Backup" una única vez.</p>}
+                                    {listToRender.length === 0 && !searchTerm && (
+                                        <div className="text-center py-10 text-slate-400 text-sm">
+                                            No hay pacientes registrados.<br/>Comienza agregando uno nuevo o importando un backup.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ) : (
-                            <PatientForm patient={currentPatient} onCancel={()=>setView('list')} onSave={handleSave}/>
+                            <PatientForm 
+                                initialData={currentPatient} 
+                                onSave={handleSave} 
+                                onCancel={() => setView('list')}
+                                options={dynamicRepertoire}
+                            />
                         )}
                     </main>
                 </div>
             );
         };
 
-        const PatientForm = ({patient, onCancel, onSave}) => {
-            const [f, setF] = useState(patient || {
-                firstName:'', lastName:'', dni:'', birthDate:'', phone:'',
-                neonatal:[], pathological:[], pending:[], images:[], consults:[]
+        const PatientForm = ({ initialData, onSave, onCancel, options }) => {
+            const [saving, setSaving] = useState(false);
+            const [formData, setFormData] = useState({
+                firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
+                neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
             });
-            const [newCons, setNewCons] = useState({date: new Date().toISOString().split('T')[0], motive:[], weight:'', height:'', pc:'', note:''});
-            const [newPend, setNewPend] = useState("");
-            const [isSaving, setIsSaving] = useState(false);
-            const camRef = useRef(null);
+        
+            const [newConsultation, setNewConsultation] = useState({
+                date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: ''
+            });
+            const [newPending, setNewPending] = useState("");
+            const [modalImageSrc, setModalImageSrc] = useState(null); 
+            const galleryInputRef = useRef(null);
+            const cameraInputRef = useRef(null);
+            const [showHistory, setShowHistory] = useState(false);
 
-            const handleImage = (e) => {
+            useEffect(() => {
+                if (initialData) setFormData({ ...initialData });
+            }, [initialData]);
+
+            const handleImageUpload = (e) => {
                 const file = e.target.files[0];
-                if(!file) return;
-                const r = new FileReader();
-                r.onloadend = () => {
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onloadend = () => {
                     const img = new Image();
-                    img.src = r.result;
+                    img.src = reader.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
-                        const max = 800; let w = img.width, h = img.height;
-                        if(w>max || h>max){ const scale = Math.min(max/w, max/h); w*=scale; h*=scale; }
+                        const maxDim = 800; 
+                        let w = img.width, h = img.height;
+                        if (w > maxDim || h > maxDim) {
+                            const r = Math.min(maxDim / w, maxDim / h);
+                            w *= r; h *= r;
+                        }
                         canvas.width = w; canvas.height = h;
                         ctx.drawImage(img, 0, 0, w, h);
                         const b64 = canvas.toDataURL('image/jpeg', 0.7);
-                        setF(p => ({...p, images:[...(p.images||[]), {id:Date.now(), src:b64, date:new Date().toLocaleDateString()}]}));
-                    };
+                        setFormData(p => ({ ...p, images: [...(p.images || []), { id: Date.now(), src: b64, date: new Date().toLocaleDateString('es-AR') }] }));
+                    }
                 };
-                r.readAsDataURL(file);
+                reader.readAsDataURL(file);
             };
 
-            const submit = async (e) => {
+            const handleSubmit = (e) => {
                 e.preventDefault();
-                setIsSaving(true);
-                let consults = [...(f.consults || [])];
-                if(newCons.note || newCons.weight || newCons.motive.length > 0) {
-                    consults.push({...newCons, id:Date.now()});
+                setSaving(true);
+
+                let updatedConsultations = [...(formData.consultations || [])];
+                const { weight, height, headCircumference, notes, motive } = newConsultation;
+
+                if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
+                    const [y, m, d] = newConsultation.date.split("-").map(Number);
+                    updatedConsultations.push({
+                        ...newConsultation,
+                        date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
+                        id: Date.now()
+                    });
                 }
-                await onSave({...f, consults: consults.sort((a,b)=>new Date(b.date)-new Date(a.date))});
-                setIsSaving(false);
+
+                onSave({ 
+                    ...formData, 
+                    consultations: updatedConsultations.sort((a,b) => b.date - a.date) 
+                });
+
+                setTimeout(() => setSaving(false), 800);
             };
 
             return (
-                <form onSubmit={submit} className="space-y-5 animate-fade-in pb-10">
-                    {/* Ficha Personal */}
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-                        <div className="flex items-center gap-2 text-sky-600 font-bold mb-2"><User size={18}/> Ficha Personal</div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <input required placeholder="Apellido" className="w-full p-2 bg-slate-50 rounded-lg outline-none" value={f.lastName} onChange={e=>setF(p=>({...p, lastName:e.target.value}))}/>
-                            <input required placeholder="Nombre" className="w-full p-2 bg-slate-50 rounded-lg outline-none" value={f.firstName} onChange={e=>setF(p=>({...p, firstName:e.target.value}))}/>
+                <form className="space-y-6 animate-fade-in" onSubmit={handleSubmit}>
+                    <Card className="border-l-4 border-l-sky-500">
+                        <div className="flex items-center gap-2 mb-4 text-sky-800">
+                            <User size={20} />
+                            <h3 className="font-bold text-lg">Datos del Paciente</h3>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <input required type="number" placeholder="DNI" className="w-full p-2 bg-slate-50 rounded-lg outline-none" value={f.dni} onChange={e=>setF(p=>({...p, dni:e.target.value}))}/>
-                            <input required type="date" className="w-full p-2 bg-slate-50 rounded-lg outline-none" value={f.birthDate} onChange={e=>setF(p=>({...p, birthDate:e.target.value}))}/>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Nombre</label>
+                            <input required className="w-full p-2 border rounded-lg" value={formData.firstName} onChange={e => setFormData(p=>({...p, firstName: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Apellido</label>
+                            <input required className="w-full p-2 border rounded-lg" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">DNI</label>
+                            <input required type="number" className="w-full p-2 border rounded-lg" value={formData.dni} onChange={e => setFormData(p=>({...p, dni: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Teléfono (Opcional)</label>
+                            <input type="tel" placeholder="Ej: 1122334455" className="w-full p-2 border rounded-lg" value={formData.phone || ''} onChange={e => setFormData(p=>({...p, phone: e.target.value}))} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Fecha Nacimiento</label>
+                            <input required type="date" className="w-full p-2 border rounded-lg" value={formData.birthDate} onChange={e => setFormData(p=>({...p, birthDate: e.target.value}))} /></div>
                         </div>
-                        <input placeholder="Teléfono" className="w-full p-2 bg-slate-50 rounded-lg outline-none" value={f.phone} onChange={e=>setF(p=>({...p, phone:e.target.value}))}/>
-                    </div>
+                    </Card>
 
-                    {/* Antecedentes */}
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3">
-                        <div className="flex items-center gap-2 text-sky-600 font-bold mb-2"><Activity size={18}/> Antecedentes</div>
-                        <TagInput label="Neonatales" options={["Sano", "Prematuro", "Ictericia", "ARM"]} value={f.neonatal} onChange={v => setF(p=>({...p, neonatal:v}))} placeholder="Agregar..."/>
-                        <TagInput label="Patológicos" options={["Asma", "Alergia", "Bronquiolitis", "Celiaquía"]} value={f.pathological} onChange={v => setF(p=>({...p, pathological:v}))} placeholder="Agregar..."/>
-                    </div>
-
-                    {/* Consulta Actual */}
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border-l-4 border-sky-500 space-y-4">
-                        <div className="flex items-center gap-2 text-sky-600 font-bold mb-2"><Stethoscope size={18}/> Consulta Actual</div>
-                        <div className="flex justify-between items-center">
-                            <label className="text-xs font-bold text-slate-400 uppercase">Fecha</label>
-                            <input type="date" className="p-1 border rounded text-xs" value={newCons.date} onChange={e=>setNewCons(p=>({...p, date:e.target.value}))}/>
+                    <Card>
+                        <div className="flex items-center gap-2 mb-4 text-sky-800"><Activity size={20} /><h3 className="font-bold text-lg">Antecedentes</h3></div>
+                        <div className="space-y-4">
+                            <TagInput label="Neonatales" options={options.neonatal} value={formData.neonatalHistory} onChange={v => setFormData(p=>({...p, neonatalHistory: v}))} />
+                            <TagInput label="Patológicos" options={options.pathological} value={formData.pathologicalHistory} onChange={v => setFormData(p=>({...p, pathologicalHistory: v}))} />
                         </div>
-                        <TagInput label="Motivo de Consulta" options={["Control", "Fiebre", "Tos", "Vacunas"]} value={newCons.motive} onChange={v => setNewCons(p=>({...p, motive:v}))} placeholder="Agregar motivo..."/>
-                        <div className="grid grid-cols-3 gap-2">
-                            <div><label className="text-[10px] font-bold text-slate-400 block ml-1 uppercase">Peso (Kg)</label><input type="number" step="0.01" className="w-full p-2 bg-slate-50 rounded-lg outline-none text-center" value={newCons.weight} onChange={e=>setNewCons(p=>({...p, weight:e.target.value}))}/></div>
-                            <div><label className="text-[10px] font-bold text-slate-400 block ml-1 uppercase">Talla (Cm)</label><input type="number" step="0.1" className="w-full p-2 bg-slate-50 rounded-lg outline-none text-center" value={newCons.height} onChange={e=>setNewCons(p=>({...p, height:e.target.value}))}/></div>
-                            <div><label className="text-[10px] font-bold text-slate-400 block ml-1 uppercase">P.C. (Cm)</label><input type="number" step="0.1" className="w-full p-2 bg-slate-50 rounded-lg outline-none text-center" value={newCons.pc} onChange={e=>setNewCons(p=>({...p, pc:e.target.value}))}/></div>
-                        </div>
-                        <textarea placeholder="Evolución y notas de la consulta..." className="w-full p-3 bg-slate-50 rounded-xl text-sm min-h-[140px] outline-none" value={newCons.note} onChange={e=>setNewCons(p=>({...p, note:e.target.value}))}></textarea>
-                    </div>
+                    </Card>
 
-                    {/* Historial */}
-                    {f.consults?.length > 0 && (
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Historial Clínico</label>
-                            {f.consults.map(c => (
-                                <div key={c.id} className="bg-slate-50 p-4 rounded-xl text-xs space-y-1 border border-slate-100 shadow-sm">
-                                    <div className="flex justify-between font-bold text-sky-600"><span>{c.date}</span><span>{c.weight}kg | {c.height}cm | PC: {c.pc}</span></div>
-                                    <div className="font-bold text-slate-700">Motivo: {c.motive?.join(", ")}</div>
-                                    <p className="text-slate-500 italic mt-1 leading-relaxed">{c.note}</p>
+                    <Card>
+                        <div className="flex items-center gap-2 mb-4 text-sky-800"><Stethoscope size={20} /><h3 className="font-bold text-lg">Consulta Actual</h3></div>
+                        <div className="bg-slate-50 p-3 rounded-lg border space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-bold text-slate-600">Fecha de Consulta</span>
+                                <input type="date" className="p-1 border rounded text-sm" value={newConsultation.date} onChange={e => setNewConsultation(p=>({...p, date:e.target.value}))} />
+                            </div>
+                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setNewConsultation(p=>({...p, motive:v}))} />
+                            <div className="grid grid-cols-3 gap-3">
+                                <input type="number" step="0.01" placeholder="Peso" className="p-2 border rounded-lg text-center" value={newConsultation.weight} onChange={e => setNewConsultation(p=>({...p, weight:e.target.value}))} />
+                                <input type="number" step="0.1" placeholder="Talla" className="p-2 border rounded-lg text-center" value={newConsultation.height} onChange={e => setNewConsultation(p=>({...p, height:e.target.value}))} />
+                                <input type="number" step="0.1" placeholder="P.C." className="p-2 border rounded-lg text-center" value={newConsultation.headCircumference} onChange={e => setNewConsultation(p=>({...p, headCircumference:e.target.value}))} />
+                            </div>
+                            {formData.birthDate && newConsultation.date && (
+                                <div className="text-xs text-slate-500 mb-1">
+                                    Edad del paciente en esta consulta:{" "}
+                                    <strong>
+                                    {calculateAgeAtDate(
+                                        formData.birthDate,
+                                        new Date(...newConsultation.date.split("-").map((v, i) => i === 1 ? Number(v) - 1 : Number(v))).getTime()
+                                    )}
+                                    </strong>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            )}
 
-                    {/* Pendientes */}
-                    <div className="bg-amber-50 p-5 rounded-2xl shadow-sm border border-amber-100">
-                        <div className="flex items-center gap-2 text-amber-700 font-bold mb-3"><AlertCircle size={18}/> Pendientes</div>
-                        <div className="flex gap-2 mb-3">
-                            <input className="flex-1 p-2 bg-white rounded-lg outline-none border border-amber-200 text-xs shadow-inner" placeholder="Escribir pendiente..." value={newPend} onChange={e=>setNewPend(e.target.value)}/>
-                            <button type="button" onClick={()=>{ if(newPend){ setF(p=>({...p, pending:[...(p.pending||[]), {id:Date.now(), text:newPend}]})); setNewPend(""); } }} className="bg-amber-500 text-white p-2 rounded-lg shadow-md"><Plus size={16}/></button>
+                            <textarea className="w-full p-3 border rounded-lg h-24 text-sm" placeholder="Evolución clínica..." value={newConsultation.notes} onChange={e => setNewConsultation(p=>({...p, notes:e.target.value}))}></textarea>
                         </div>
-                        <div className="space-y-1">
-                            {f.pending?.map(p => (
-                                <div key={p.id} className="bg-white p-2 rounded-lg flex justify-between items-center border border-amber-100 text-xs">
-                                    <span className="text-slate-700">{p.text}</span>
-                                    <button type="button" onClick={()=>setF(prev=>({...prev, pending:prev.pending.filter(x=>x.id!==p.id)}))} className="text-emerald-500 hover:scale-110 transition-transform"><CheckCircle size={18}/></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
 
-                    {/* Imágenes */}
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                        <div className="flex justify-between items-center mb-3">
-                            <div className="font-bold text-slate-700 text-xs uppercase tracking-tight">Fotos / Estudios</div>
-                            <button type="button" onClick={()=>camRef.current.click()} className="text-sky-500 font-bold text-xs bg-sky-50 px-2 py-1 rounded">+ Agregar</button>
+                        <div className="mt-6 space-y-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowHistory(v => !v)}
+                                className="w-full flex justify-between items-center font-bold text-slate-700 text-sm"
+                            >
+                                <span>
+                                    Historial
+                                    {formData.consultations?.length > 0 && (
+                                    <span className="ml-2 text-xs text-slate-500">
+                                        ({formData.consultations.length})
+                                    </span>
+                                    )}
+                                </span>
+                                <span className="text-slate-400">
+                                    {showHistory ? "▲" : "▼"}
+                                </span>
+                            </button>
+
+                            {showHistory && (
+                                (formData.consultations || []).map(c => (
+                                    <div key={c.id} className="p-3 border rounded-lg text-xs bg-white shadow-sm">
+                                    <div className="flex justify-between font-bold text-sky-600 mb-1">
+                                        <span>{formatDate(c.date)}</span>
+                                        <span>Edad: {calculateAgeAtDate(formData.birthDate, c.date)}</span>
+                                    </div>
+                                    <p className="font-semibold text-slate-700">
+                                        M: {c.motive?.join(', ') || 'N/A'}
+                                    </p>
+                                    <p className="text-slate-500">
+                                        P: {c.weight}kg | T: {c.height}cm | PC: {c.headCircumference}
+                                    </p>
+                                    <p className="mt-1 italic">{c.notes}</p>
+                                    </div>
+                                ))
+                            )}
+
                         </div>
-                        <input type="file" ref={camRef} className="hidden" accept="image/*" onChange={handleImage}/>
+                    </Card>
+
+                    <Card className="bg-amber-50">
+                        <div className="flex items-center gap-2 mb-4 text-amber-700"><AlertCircle size={20} /><h3 className="font-bold text-lg">Pendientes</h3></div>
+                        <div className="flex gap-2">
+                            <input className="flex-1 p-2 border rounded-lg" placeholder="Nuevo pendiente..." value={newPending} onChange={e=>setNewPending(e.target.value)} />
+                            <Button variant="secondary" onClick={()=>{ if(newPending.trim()){ setFormData(p=>({...p, pendingItems:[...(p.pendingItems || []), {id:Date.now(), text:newPending}]})); setNewPending(""); } }}><Plus size={18}/></Button>
+                        </div>
+                        <ul className="mt-3 space-y-2">
+                            {(formData.pendingItems || []).map(i => (
+                                <li key={i.id} className="flex justify-between items-center p-2 bg-white rounded border border-amber-200">
+                                    <span className="text-sm">{i.text}</span>
+                                    <button type="button" onClick={()=>setFormData(p=>({...p, pendingItems:p.pendingItems.filter(x=>x.id!==i.id)}))} className="text-emerald-500"><CheckCircle size={18}/></button>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+
+                    <Card>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg text-slate-700">Archivos</h3>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => cameraInputRef.current.click()}
+                                    className="flex-1"
+                                >
+                                    📷 Foto
+                                </Button>
+
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => galleryInputRef.current.click()}
+                                    className="flex-1"
+                                >
+                                    🖼️ Galería
+                                </Button>
+                            </div>
+                        </div>
+                        <input type="file" ref={galleryInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                        <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleImageUpload} />
+
                         <div className="grid grid-cols-4 gap-2">
-                            {f.images?.map(img => (
-                                <div key={img.id} className="aspect-square relative rounded-lg overflow-hidden border shadow-sm">
-                                    <img src={img.src} className="w-full h-full object-cover"/>
-                                    <button type="button" onClick={()=>setF(p=>({...p, images:p.images.filter(x=>x.id!==img.id)}))} className="absolute top-0 right-0 bg-white/90 p-1 text-rose-500 rounded-bl-lg"><Trash2 size={12}/></button>
+                            {(formData.images || []).map(img => (
+                                <div key={img.id} className="relative aspect-square border rounded-lg overflow-hidden bg-slate-100 cursor-pointer" onClick={()=>setModalImageSrc(img.src)}>
+                                    <img src={img.src} className="w-full h-full object-cover" />
+                                    <button type="button" onClick={(e)=>{e.stopPropagation(); setFormData(p=>({...p, images:p.images.filter(x=>x.id!==img.id)}))}} className="absolute top-1 right-1 bg-white/80 rounded-full p-1 text-rose-500"><Trash2 size={12}/></button>
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </Card>
 
-                    {/* Botones */}
-                    <div className="flex gap-4 sticky bottom-0 bg-white p-2 border-t">
-                        <button type="button" onClick={onCancel} className="flex-1 p-4 font-bold text-slate-400">Cancelar</button>
-                        <button type="submit" disabled={isSaving} className="flex-2 bg-sky-500 text-white p-4 rounded-xl font-bold shadow-lg shadow-sky-200 flex justify-center gap-2 active:scale-95 transition-all">
-                            <Save size={20}/> {isSaving ? 'Guardando...' : 'Guardar Paciente'}
-                        </button>
+                    {modalImageSrc && <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={()=>setModalImageSrc(null)}>
+                        <img src={modalImageSrc} className="max-w-full max-h-full object-contain" />
+                        <button className="absolute top-4 right-4 text-white p-2 bg-white/10 rounded-full" onClick={()=>setModalImageSrc(null)}><X size={32}/></button>
+                    </div>}
+
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
+                        <Button variant="danger" onClick={onCancel} className="flex-1">Cancelar</Button>
+                        <Button type="submit" className="flex-1 md:w-48" disabled={saving}>
+                            <Save size={18} />
+                            {saving ? "Guardando…" : "Guardar"}
+                        </Button>
                     </div>
                 </form>
             );
@@ -444,6 +977,18 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+    </script>
+    <script>
+        // Evitar registrar el Service Worker en entornos como 'blob:' o 'file:' que causan error
+        if ("serviceWorker" in navigator && (window.location.protocol === "http:" || window.location.protocol === "https:")) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("./sw.js")
+                .then(() => console.log("Service Worker registrado"))
+                .catch(err => console.warn("SW advertencia:", err.message));
+            });
+        } else {
+            console.log("Service Worker omitido: El protocolo actual (" + window.location.protocol + ") no soporta PWA.");
+        }
     </script>
 </body>
 </html>
