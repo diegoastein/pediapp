@@ -34,10 +34,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+        // Importamos las funciones de Auth para Email y Contraseña
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
@@ -56,18 +55,16 @@
             if (app) {
                 auth = getAuth(app);
                 db = getFirestore(app);
-                enableIndexedDbPersistence(db)
-  .catch((err) => {
-    console.warn("Firestore offline no disponible:", err.code);
-  });
-
+                enableIndexedDbPersistence(db).catch((err) => {
+                    console.warn("Firestore offline no disponible:", err.code);
+                });
             }
         } catch (e) {
             console.error("Error inicializando Firebase:", e);
         }
 
         window.firebaseData = { 
-            auth, db, appId, signInAnonymously, onAuthStateChanged, 
+            auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
             collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
         };
     </script>
@@ -90,15 +87,11 @@
         const User = (props) => <Icon {...props}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Icon>;
         const Plus = (props) => <Icon {...props}><path d="M5 12h14"/><path d="M12 5v14"/></Icon>;
         const Search = (props) => <Icon {...props}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>;
-        const Calendar = (props) => <Icon {...props}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></Icon>;
         const FileText = (props) => <Icon {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></Icon>;
         const Activity = (props) => <Icon {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
         const Trash2 = (props) => <Icon {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>;
         const Save = (props) => <Icon {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
         const ArrowLeft = (props) => <Icon {...props}><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></Icon>;
-        const Camera = (props) => <Icon {...props}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>;
-        const Upload = (props) => <Icon {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></Icon>;
-        const GalleryHorizontal = (props) => <Icon {...props}><path d="M20 3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/><path d="M11 9H9a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h2"/></Icon>;
         const AlertCircle = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
         const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
         const Baby = (props) => <Icon {...props}><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></Icon>;
@@ -106,11 +99,10 @@
         const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
         const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
-        const Phone = (props) => <Icon {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></Icon>;
+        const LogOut = (props) => <Icon {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></Icon>;
 
 
         // --- Helper Functions ---
-        // MODIFICACIÓN: Cálculo de edad mejorado para incluir días si es menor a un mes
         function calculateAge(birthDate) {
             if (!birthDate) return "";
             const today = new Date();
@@ -122,7 +114,6 @@
 
             if (days < 0) {
                 months--;
-                // Obtener días del mes anterior
                 days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
             }
 
@@ -131,15 +122,9 @@
                 months += 12;
             }
 
-            if (years >= 1) {
-                return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`;
-            }
-            if (months >= 1) {
-                return `${months} mes${months !== 1 ? 'es' : ''}${days > 0 ? `, ${days} día${days !== 1 ? 's' : ''}` : ''}`;
-            }
-            if (days >= 0) {
-                return `${days} día${days !== 1 ? 's' : ''}`;
-            }
+            if (years >= 1) return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`;
+            if (months >= 1) return `${months} mes${months !== 1 ? 'es' : ''}${days > 0 ? `, ${days} día${days !== 1 ? 's' : ''}` : ''}`;
+            if (days >= 0) return `${days} día${days !== 1 ? 's' : ''}`;
             return "Fecha futura";
         }
         
@@ -183,77 +168,73 @@
                 document.body.removeChild(textarea);
             }
         }
+
         function buildBackupData(patients) {
-    const now = new Date();
-
-    return {
-        metadata: {
-            app: "PediApp",
-            schemaVersion: "1.0",
-            exportedAt: now.toISOString(),
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            patientCount: patients.length
-        },
-        patients: patients.map(p => ({
-            patientId: p.id || `local-${Date.now()}`,
-            identity: {
-                firstName: p.firstName || "",
-                lastName: p.lastName || "",
-                dni: p.dni || "",
-                birthDate: p.birthDate || "",
-                phone: p.phone || ""
-            },
-            clinicalHistory: {
-                neonatal: p.neonatalHistory || [],
-                pathological: p.pathologicalHistory || []
-            },
-            consultations: (p.consultations || []).map(c => {
-                const age = calculateAgeAtDate(p.birthDate, c.date);
-                return {
-                    consultationId: c.id || `c-${Date.now()}`,
-                    date: new Date(c.date).toISOString().slice(0, 10),
-                    ageAtConsultation: {
-                        formatted: age
+            const now = new Date();
+            return {
+                metadata: {
+                    app: "PediApp",
+                    schemaVersion: "1.0",
+                    exportedAt: now.toISOString(),
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    patientCount: patients.length
+                },
+                patients: patients.map(p => ({
+                    patientId: p.id || `local-${Date.now()}`,
+                    identity: {
+                        firstName: p.firstName || "",
+                        lastName: p.lastName || "",
+                        dni: p.dni || "",
+                        birthDate: p.birthDate || "",
+                        phone: p.phone || ""
                     },
-                    motive: c.motive || [],
-                    anthropometry: {
-                        weightKg: c.weight || null,
-                        heightCm: c.height || null,
-                        headCircumferenceCm: c.headCircumference || null
+                    clinicalHistory: {
+                        neonatal: p.neonatalHistory || [],
+                        pathological: p.pathologicalHistory || []
                     },
-                    notes: c.notes || "",
-                    createdAt: new Date(c.date).toISOString()
-                };
-            }),
-            pendingItems: (p.pendingItems || []).map(pi => ({
-                id: pi.id || `p-${Date.now()}`,
-                text: pi.text || "",
-                status: "open"
-            })),
-            attachments: (p.images || []).map(img => ({
-                id: img.id || `img-${Date.now()}`,
-                type: "image/jpeg",
-                description: "Imagen clínica",
-                createdAt: img.date || "",
-                data: img.src || ""
-            }))
-        }))
-    };
-}
-function downloadBackup(data) {
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
+                    consultations: (p.consultations || []).map(c => {
+                        const age = calculateAgeAtDate(p.birthDate, c.date);
+                        return {
+                            consultationId: c.id || `c-${Date.now()}`,
+                            date: new Date(c.date).toISOString().slice(0, 10),
+                            ageAtConsultation: { formatted: age },
+                            motive: c.motive || [],
+                            anthropometry: {
+                                weightKg: c.weight || null,
+                                heightCm: c.height || null,
+                                headCircumferenceCm: c.headCircumference || null
+                            },
+                            notes: c.notes || "",
+                            createdAt: new Date(c.date).toISOString()
+                        };
+                    }),
+                    pendingItems: (p.pendingItems || []).map(pi => ({
+                        id: pi.id || `p-${Date.now()}`,
+                        text: pi.text || "",
+                        status: "open"
+                    })),
+                    attachments: (p.images || []).map(img => ({
+                        id: img.id || `img-${Date.now()}`,
+                        type: "image/jpeg",
+                        description: "Imagen clínica",
+                        createdAt: img.date || "",
+                        data: img.src || ""
+                    }))
+                }))
+            };
+        }
 
-    const a = document.createElement("a");
-    const date = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `pediapp-backup-${date}.json`;
-    a.click();
-
-    URL.revokeObjectURL(url);
-}
-
+        function downloadBackup(data) {
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const date = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `pediapp-backup-${date}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
         
         function generatePatientSummary(patient) {
             const age = calculateAge(patient.birthDate);
@@ -281,8 +262,8 @@ function downloadBackup(data) {
         }
 
         // --- UI Components ---
-        const Card = ({ children, className = "" }) => (
-            <div className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>
+        const Card = ({ children, className = "", onClick }) => (
+            <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>
                 {children}
             </div>
         );
@@ -407,14 +388,23 @@ function downloadBackup(data) {
         // --- Main App ---
         const App = () => {
             const [user, setUser] = useState(null);
+            
+            // Auth States
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [isRegistering, setIsRegistering] = useState(false);
+            const [authError, setAuthError] = useState('');
+            
             const [view, setView] = useState("list");
             const [patients, setPatients] = useState([]);
             const [currentPatient, setCurrentPatient] = useState(null);
             const [searchTerm, setSearchTerm] = useState("");
             const [loading, setLoading] = useState(true);
             const [sharePatientData, setSharePatientData] = useState(null); 
+            
+            const fileInputRef = useRef(null);
 
-            const { auth, db, appId, signInAnonymously, onAuthStateChanged, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
+            const { auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
 
             // Repertorio Dinámico
             const dynamicRepertoire = useMemo(() => {
@@ -439,31 +429,66 @@ function downloadBackup(data) {
                 };
             }, [patients]);
 
+            // Auth Listener
             useEffect(() => {
                 if (!auth) return;
-                signInAnonymously(auth).catch(console.error);
-                return onAuthStateChanged(auth, setUser);
+                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                    setUser(currentUser);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
             }, [auth]);
 
+            // Fetch Patients
             useEffect(() => {
-                if (!user || !db) return;
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
+                if (!user || !db) {
+                    setPatients([]);
+                    return;
+                }
+                
+                // USAMOS UNA RUTA PRIVADA PARA EL MEDICO BASADO EN SU UID
+                const colRef = collection(db, 'users', user.uid, 'patients');
                 return onSnapshot(colRef, (snapshot) => {
                     const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     loaded.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
                     setPatients(loaded);
-                    setLoading(false);
+                }, (error) => {
+                    console.error("Error al obtener pacientes:", error);
                 });
-            }, [user, db, appId]);
+            }, [user, db]);
+
+            // Handlers Auth
+            const handleAuth = async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                setLoading(true);
+                try {
+                    if (isRegistering) {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                    } else {
+                        await signInWithEmailAndPassword(auth, email, password);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (err.code === 'auth/operation-not-allowed') {
+                        setAuthError("Error: Debes ir a Firebase Console -> Authentication -> Sign-in method y habilitar 'Correo/Contraseña'.");
+                    } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+                        setAuthError("Email o contraseña incorrectos.");
+                    } else if (err.code === 'auth/email-already-in-use') {
+                        setAuthError("El correo ya está en uso.");
+                    } else {
+                        setAuthError(err.message);
+                    }
+                } finally {
+                    setLoading(false);
+                }
+            };
 
             const handleSave = async (data) => {
                 if (!user || !db) return;
                 setLoading(true);
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'patients');
-                const toSave = { 
-  ...data, 
-  updatedAt: navigator.onLine ? serverTimestamp() : Date.now()
-};
+                const colRef = collection(db, 'users', user.uid, 'patients');
+                const toSave = { ...data, updatedAt: navigator.onLine ? serverTimestamp() : Date.now() };
 
                 try {
                     if (currentPatient?.id) await updateDoc(doc(colRef, currentPatient.id), toSave);
@@ -474,13 +499,104 @@ function downloadBackup(data) {
                 setLoading(false);
             };
 
+            const handleImport = async (e) => {
+                const file = e.target.files[0];
+                if (!file || !user) return;
+                setLoading(true);
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data && data.patients && Array.isArray(data.patients)) {
+                            const colRef = collection(db, 'users', user.uid, 'patients');
+                            let count = 0;
+                            for (const p of data.patients) {
+                                // Mapeamos desde el formato del backup de vuelta al formato de la app
+                                const newPatient = {
+                                    firstName: p.identity?.firstName || '',
+                                    lastName: p.identity?.lastName || '',
+                                    dni: p.identity?.dni || '',
+                                    birthDate: p.identity?.birthDate || '',
+                                    phone: p.identity?.phone || '',
+                                    neonatalHistory: p.clinicalHistory?.neonatal || [],
+                                    pathologicalHistory: p.clinicalHistory?.pathological || [],
+                                    pendingItems: p.pendingItems?.map(pi => ({ id: pi.id, text: pi.text })) || [],
+                                    images: p.attachments?.map(att => ({ id: att.id, src: att.data, date: att.createdAt })) || [],
+                                    consultations: p.consultations?.map(c => ({
+                                        id: c.consultationId || Date.now() + Math.random(),
+                                        date: c.createdAt ? new Date(c.createdAt).getTime() : new Date(c.date).getTime(),
+                                        motive: c.motive || [],
+                                        weight: c.anthropometry?.weightKg || '',
+                                        height: c.anthropometry?.heightCm || '',
+                                        headCircumference: c.anthropometry?.headCircumferenceCm || '',
+                                        notes: c.notes || ''
+                                    })) || [],
+                                    createdAt: serverTimestamp(),
+                                    updatedAt: serverTimestamp()
+                                };
+                                await addDoc(colRef, newPatient);
+                                count++;
+                            }
+                            alert(`✅ Se importaron ${count} pacientes correctamente a tu cuenta.`);
+                        } else {
+                            alert("❌ El archivo no tiene el formato correcto.");
+                        }
+                    } catch (err) {
+                        console.error("Error importando:", err);
+                        alert("❌ Error al leer el archivo de backup.");
+                    } finally {
+                        setLoading(false);
+                        if (fileInputRef.current) fileInputRef.current.value = null;
+                    }
+                };
+                reader.readAsText(file);
+            };
+
             const filtered = patients.filter(p => 
                 `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase())
             );
             const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
 
-            if (!user) return <div className="h-screen flex items-center justify-center text-slate-500">Cargando...</div>;
+            if (loading && !authError) return <div className="h-screen flex items-center justify-center text-slate-500 font-bold">Cargando...</div>;
 
+            // LOGIN SCREEN
+            if (!user) {
+                return (
+                    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                        <Card className="w-full max-w-md p-8 shadow-xl">
+                            <div className="flex flex-col items-center gap-3 mb-8">
+                                <div className="bg-sky-100 p-4 rounded-full text-sky-600">
+                                    <Stethoscope size={40} />
+                                </div>
+                                <h1 className="text-2xl font-bold tracking-tight text-slate-800">PediApp</h1>
+                                <p className="text-slate-500 text-sm text-center">Inicia sesión para acceder a tus pacientes desde cualquier navegador o dispositivo.</p>
+                            </div>
+
+                            {authError && <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-sm mb-4 text-center font-semibold">{authError}</div>}
+
+                            <form className="space-y-4" onSubmit={handleAuth}>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
+                                    <input type="email" required className="w-full p-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-sky-500 outline-none transition-all" value={email} onChange={e => setEmail(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña</label>
+                                    <input type="password" required minLength="6" className="w-full p-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-sky-500 outline-none transition-all" value={password} onChange={e => setPassword(e.target.value)} />
+                                </div>
+                                <Button type="submit" className="w-full py-3 mt-2">{isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'}</Button>
+                            </form>
+
+                            <div className="mt-6 text-center">
+                                <button type="button" onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }} className="text-sky-600 text-sm font-bold hover:underline">
+                                    {isRegistering ? '¿Ya tienes cuenta? Inicia sesión aquí' : '¿No tienes cuenta? Regístrate aquí'}
+                                </button>
+                            </div>
+                        </Card>
+                    </div>
+                );
+            }
+
+            // MAIN APP RENDER
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl">
                     {sharePatientData && <ListShareModal patient={sharePatientData} onClose={() => setSharePatientData(null)} />}
@@ -490,7 +606,14 @@ function downloadBackup(data) {
                             <Baby size={28} strokeWidth={2.5} />
                             <h1 className="text-xl font-bold tracking-tight text-slate-800">H.C. dra Abraldes</h1>
                         </div>
-                        {view === 'form' && <Button variant="secondary" onClick={() => setView('list')} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>}
+                        <div className="flex items-center gap-2">
+                            {view === 'form' && <Button variant="secondary" onClick={() => setView('list')} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>}
+                            {view === 'list' && (
+                                <button onClick={() => {if(confirm("¿Cerrar sesión?")) signOut(auth)}} className="text-slate-400 hover:text-rose-500 p-2 transition-colors rounded-full hover:bg-rose-50">
+                                    <LogOut size={20} />
+                                </button>
+                            )}
+                        </div>
                     </header>
 
                     <main className="p-4">
@@ -506,28 +629,38 @@ function downloadBackup(data) {
                                         />
                                     </div>
                                     <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full justify-center"><Plus size={20} /> Nuevo Paciente</Button>
-                                    <Button
-    variant="secondary"
-    className="w-full justify-center"
-    onClick={() => {
-        const backup = buildBackupData(patients);
-        downloadBackup(backup);
-    }}
->
-    Exportar pacientes (backup)
-</Button>
-
+                                    
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="secondary"
+                                            className="flex-1 justify-center text-xs"
+                                            onClick={() => {
+                                                const backup = buildBackupData(patients);
+                                                downloadBackup(backup);
+                                            }}
+                                        >
+                                            ⬇️ Exportar backup
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            className="flex-1 justify-center text-xs bg-sky-50 text-sky-700 hover:bg-sky-100"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            ⬆️ Importar backup
+                                        </Button>
+                                        <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
+                                    </div>
                                 </div>
 
                                 <div className="space-y-3">
                                     {listToRender.map(p => (
-                                        <Card key={p.id} className="group relative">
-                                            <div className="pr-20 cursor-pointer" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                        <Card key={p.id} className="group relative cursor-pointer" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                            <div className="pr-20">
                                                 <h3 className="font-bold text-lg text-slate-800">{p.lastName}, {p.firstName}</h3>
                                                 <p className="text-slate-500 text-sm">DNI: {p.dni} {p.phone && `| Tel: ${p.phone}`}</p>
                                                 <div className="mt-2 flex gap-2">
                                                     <span className="bg-sky-50 text-sky-700 px-2 py-1 rounded text-[10px] font-bold uppercase">{calculateAge(p.birthDate)}</span>
-                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[10px] font-bold">Pendenties: {p.pendingItems.length}</span>}
+                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[10px] font-bold">Pendientes: {p.pendingItems.length}</span>}
                                                 </div>
                                             </div>
                                             
@@ -541,7 +674,7 @@ function downloadBackup(data) {
                                                     <Share2 size={18} />
                                                 </button>
                                                 <button 
-                                                    onClick={(e) => { e.stopPropagation(); if(confirm("¿Eliminar?")) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'patients', p.id)); }}
+                                                    onClick={(e) => { e.stopPropagation(); if(confirm("¿Eliminar?")) deleteDoc(doc(db, 'users', user.uid, 'patients', p.id)); }}
                                                     className="text-rose-400 p-2 rounded-full bg-slate-50 hover:bg-rose-100 transition-all shadow-sm"
                                                     title="Eliminar"
                                                 >
@@ -550,6 +683,11 @@ function downloadBackup(data) {
                                             </div>
                                         </Card>
                                     ))}
+                                    {listToRender.length === 0 && !searchTerm && (
+                                        <div className="text-center py-10 text-slate-400 text-sm">
+                                            No hay pacientes registrados.<br/>Comienza agregando uno nuevo o importando un backup.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ) : (
@@ -564,28 +702,22 @@ function downloadBackup(data) {
                 </div>
             );
         };
+
         const PatientForm = ({ initialData, onSave, onCancel, options }) => {
-
-    const [saving, setSaving] = useState(false);
-
-    const [formData, setFormData] = useState({
-        firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
-        neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
-    });
-
-
+            const [saving, setSaving] = useState(false);
+            const [formData, setFormData] = useState({
+                firstName: '', lastName: '', dni: '', birthDate: '', phone: '',
+                neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: []
+            });
         
             const [newConsultation, setNewConsultation] = useState({
-                date: new Date().toLocaleDateString('en-CA')
-, motive: [], weight: '', height: '', headCircumference: '', notes: ''
+                date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: ''
             });
             const [newPending, setNewPending] = useState("");
             const [modalImageSrc, setModalImageSrc] = useState(null); 
             const galleryInputRef = useRef(null);
             const cameraInputRef = useRef(null);
             const [showHistory, setShowHistory] = useState(false);
-
-
 
             useEffect(() => {
                 if (initialData) setFormData({ ...initialData });
@@ -616,31 +748,29 @@ function downloadBackup(data) {
                 reader.readAsDataURL(file);
             };
 
-const handleSubmit = (e) => {
-    e.preventDefault();
-    setSaving(true);
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                setSaving(true);
 
-    let updatedConsultations = [...(formData.consultations || [])];
-    const { weight, height, headCircumference, notes, motive } = newConsultation;
+                let updatedConsultations = [...(formData.consultations || [])];
+                const { weight, height, headCircumference, notes, motive } = newConsultation;
 
-    if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
-        const [y, m, d] = newConsultation.date.split("-").map(Number);
-        updatedConsultations.push({
-            ...newConsultation,
-            date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
-            id: Date.now()
-        });
-    }
+                if (weight || height || headCircumference || notes || (motive && motive.length > 0)) {
+                    const [y, m, d] = newConsultation.date.split("-").map(Number);
+                    updatedConsultations.push({
+                        ...newConsultation,
+                        date: new Date(y, m - 1, d, 12, 0, 0).getTime(),
+                        id: Date.now()
+                    });
+                }
 
-    onSave({ 
-        ...formData, 
-        consultations: updatedConsultations.sort((a,b) => b.date - a.date) 
-    });
+                onSave({ 
+                    ...formData, 
+                    consultations: updatedConsultations.sort((a,b) => b.date - a.date) 
+                });
 
-    setTimeout(() => setSaving(false), 800);
-};
-
-
+                setTimeout(() => setSaving(false), 800);
+            };
 
             return (
                 <form className="space-y-6 animate-fade-in" onSubmit={handleSubmit}>
@@ -685,60 +815,56 @@ const handleSubmit = (e) => {
                                 <input type="number" step="0.1" placeholder="P.C." className="p-2 border rounded-lg text-center" value={newConsultation.headCircumference} onChange={e => setNewConsultation(p=>({...p, headCircumference:e.target.value}))} />
                             </div>
                             {formData.birthDate && newConsultation.date && (
-  <div className="text-xs text-slate-500 mb-1">
-    Edad del paciente en esta consulta:{" "}
-    <strong>
-      {calculateAgeAtDate(
-        formData.birthDate,
-        new Date(
-          ...newConsultation.date.split("-").map((v, i) =>
-            i === 1 ? Number(v) - 1 : Number(v)
-          )
-        ).getTime()
-      )}
-    </strong>
-  </div>
-)}
+                                <div className="text-xs text-slate-500 mb-1">
+                                    Edad del paciente en esta consulta:{" "}
+                                    <strong>
+                                    {calculateAgeAtDate(
+                                        formData.birthDate,
+                                        new Date(...newConsultation.date.split("-").map((v, i) => i === 1 ? Number(v) - 1 : Number(v))).getTime()
+                                    )}
+                                    </strong>
+                                </div>
+                            )}
 
                             <textarea className="w-full p-3 border rounded-lg h-24 text-sm" placeholder="Evolución clínica..." value={newConsultation.notes} onChange={e => setNewConsultation(p=>({...p, notes:e.target.value}))}></textarea>
                         </div>
 
                         <div className="mt-6 space-y-3">
                             <button
-  type="button"
-  onClick={() => setShowHistory(v => !v)}
-  className="w-full flex justify-between items-center font-bold text-slate-700 text-sm"
->
-  <span>
-    Historial
-    {formData.consultations?.length > 0 && (
-      <span className="ml-2 text-xs text-slate-500">
-        ({formData.consultations.length})
-      </span>
-    )}
-  </span>
-  <span className="text-slate-400">
-    {showHistory ? "▲" : "▼"}
-  </span>
-</button>
+                                type="button"
+                                onClick={() => setShowHistory(v => !v)}
+                                className="w-full flex justify-between items-center font-bold text-slate-700 text-sm"
+                            >
+                                <span>
+                                    Historial
+                                    {formData.consultations?.length > 0 && (
+                                    <span className="ml-2 text-xs text-slate-500">
+                                        ({formData.consultations.length})
+                                    </span>
+                                    )}
+                                </span>
+                                <span className="text-slate-400">
+                                    {showHistory ? "▲" : "▼"}
+                                </span>
+                            </button>
 
                             {showHistory && (
-  (formData.consultations || []).map(c => (
-    <div key={c.id} className="p-3 border rounded-lg text-xs bg-white shadow-sm">
-      <div className="flex justify-between font-bold text-sky-600 mb-1">
-        <span>{formatDate(c.date)}</span>
-        <span>Edad: {calculateAgeAtDate(formData.birthDate, c.date)}</span>
-      </div>
-      <p className="font-semibold text-slate-700">
-        M: {c.motive?.join(', ') || 'N/A'}
-      </p>
-      <p className="text-slate-500">
-        P: {c.weight}kg | T: {c.height}cm | PC: {c.headCircumference}
-      </p>
-      <p className="mt-1 italic">{c.notes}</p>
-    </div>
-  ))
-)}
+                                (formData.consultations || []).map(c => (
+                                    <div key={c.id} className="p-3 border rounded-lg text-xs bg-white shadow-sm">
+                                    <div className="flex justify-between font-bold text-sky-600 mb-1">
+                                        <span>{formatDate(c.date)}</span>
+                                        <span>Edad: {calculateAgeAtDate(formData.birthDate, c.date)}</span>
+                                    </div>
+                                    <p className="font-semibold text-slate-700">
+                                        M: {c.motive?.join(', ') || 'N/A'}
+                                    </p>
+                                    <p className="text-slate-500">
+                                        P: {c.weight}kg | T: {c.height}cm | PC: {c.headCircumference}
+                                    </p>
+                                    <p className="mt-1 italic">{c.notes}</p>
+                                    </div>
+                                ))
+                            )}
 
                         </div>
                     </Card>
@@ -763,40 +889,25 @@ const handleSubmit = (e) => {
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-lg text-slate-700">Archivos</h3>
                             <div className="flex gap-2">
-  <Button
-    variant="secondary"
-    onClick={() => cameraInputRef.current.click()}
-    className="flex-1"
-  >
-    📷 Foto
-  </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => cameraInputRef.current.click()}
+                                    className="flex-1"
+                                >
+                                    📷 Foto
+                                </Button>
 
-  <Button
-    variant="secondary"
-    onClick={() => galleryInputRef.current.click()}
-    className="flex-1"
-  >
-    🖼️ Galería
-  </Button>
-</div>
-
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => galleryInputRef.current.click()}
+                                    className="flex-1"
+                                >
+                                    🖼️ Galería
+                                </Button>
+                            </div>
                         </div>
-                        <input
-  type="file"
-  ref={galleryInputRef}
-  className="hidden"
-  accept="image/*"
-  onChange={handleImageUpload}
-/>
-
-<input
-  type="file"
-  ref={cameraInputRef}
-  className="hidden"
-  accept="image/*"
-  capture="environment"
-  onChange={handleImageUpload}
-/>
+                        <input type="file" ref={galleryInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                        <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleImageUpload} />
 
                         <div className="grid grid-cols-4 gap-2">
                             {(formData.images || []).map(img => (
@@ -815,15 +926,10 @@ const handleSubmit = (e) => {
 
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 md:static md:bg-transparent md:border-0 md:p-0">
                         <Button variant="danger" onClick={onCancel} className="flex-1">Cancelar</Button>
-                        <Button
-    type="submit"
-    className="flex-1 md:w-48"
-    disabled={saving}
->
-    <Save size={18} />
-    {saving ? "Guardando…" : "Guardar"}
-</Button>
-
+                        <Button type="submit" className="flex-1 md:w-48" disabled={saving}>
+                            <Save size={18} />
+                            {saving ? "Guardando…" : "Guardar"}
+                        </Button>
                     </div>
                 </form>
             );
@@ -833,14 +939,16 @@ const handleSubmit = (e) => {
         root.render(<App />);
     </script>
     <script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js")
-      .then(() => console.log("Service Worker registrado"))
-      .catch(err => console.error("SW error:", err));
-  });
-}
-</script>
-
+        // Evitar registrar el Service Worker en entornos como 'blob:' o 'file:' que causan error
+        if ("serviceWorker" in navigator && (window.location.protocol === "http:" || window.location.protocol === "https:")) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("./sw.js")
+                .then(() => console.log("Service Worker registrado"))
+                .catch(err => console.warn("SW advertencia:", err.message));
+            });
+        } else {
+            console.log("Service Worker omitido: El protocolo actual (" + window.location.protocol + ") no soporta PWA.");
+        }
+    </script>
 </body>
 </html>
