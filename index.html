@@ -404,7 +404,8 @@
             
             const fileInputRef = useRef(null);
 
-            const { auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
+            // IMPORTANTE: Aseguramos tener el appId
+            const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
 
             // Repertorio Dinámico
             const dynamicRepertoire = useMemo(() => {
@@ -439,15 +440,15 @@
                 return () => unsubscribe();
             }, [auth]);
 
-            // Fetch Patients
+            // Fetch Patients (RUTA CORREGIDA)
             useEffect(() => {
                 if (!user || !db) {
                     setPatients([]);
                     return;
                 }
                 
-                // USAMOS UNA RUTA PRIVADA PARA EL MEDICO BASADO EN SU UID
-                const colRef = collection(db, 'users', user.uid, 'patients');
+                // RUTA CORREGIDA: Incluyendo artifacts/appId/users/...
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
                 return onSnapshot(colRef, (snapshot) => {
                     const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     loaded.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
@@ -455,7 +456,7 @@
                 }, (error) => {
                     console.error("Error al obtener pacientes:", error);
                 });
-            }, [user, db]);
+            }, [user, db, appId]);
 
             // Handlers Auth
             const handleAuth = async (e) => {
@@ -487,15 +488,22 @@
             const handleSave = async (data) => {
                 if (!user || !db) return;
                 setLoading(true);
-                const colRef = collection(db, 'users', user.uid, 'patients');
+                // RUTA CORREGIDA: Incluyendo artifacts/appId/users/...
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
                 const toSave = { ...data, updatedAt: navigator.onLine ? serverTimestamp() : Date.now() };
 
                 try {
-                    if (currentPatient?.id) await updateDoc(doc(colRef, currentPatient.id), toSave);
-                    else await addDoc(colRef, { ...toSave, createdAt: navigator.onLine ? serverTimestamp() : Date.now() });
+                    if (currentPatient?.id) {
+                        await updateDoc(doc(colRef, currentPatient.id), toSave);
+                    } else {
+                        await addDoc(colRef, { ...toSave, createdAt: navigator.onLine ? serverTimestamp() : Date.now() });
+                    }
                     setView("list");
                     setCurrentPatient(null);
-                } catch (e) { alert("Error al guardar"); }
+                } catch (e) { 
+                    console.error("Error al guardar en DB:", e);
+                    alert("Error al guardar: " + e.message); 
+                }
                 setLoading(false);
             };
 
@@ -508,7 +516,8 @@
                     try {
                         const data = JSON.parse(event.target.result);
                         if (data && data.patients && Array.isArray(data.patients)) {
-                            const colRef = collection(db, 'users', user.uid, 'patients');
+                            // RUTA CORREGIDA: Incluyendo artifacts/appId/users/...
+                            const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
                             let count = 0;
                             for (const p of data.patients) {
                                 // Mapeamos desde el formato del backup de vuelta al formato de la app
@@ -674,7 +683,11 @@
                                                     <Share2 size={18} />
                                                 </button>
                                                 <button 
-                                                    onClick={(e) => { e.stopPropagation(); if(confirm("¿Eliminar?")) deleteDoc(doc(db, 'users', user.uid, 'patients', p.id)); }}
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        // RUTA CORREGIDA
+                                                        if(confirm("¿Eliminar?")) deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id)); 
+                                                    }}
                                                     className="text-rose-400 p-2 rounded-full bg-slate-50 hover:bg-rose-100 transition-all shadow-sm"
                                                     title="Eliminar"
                                                 >
