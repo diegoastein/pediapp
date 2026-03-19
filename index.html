@@ -550,11 +550,26 @@
                     <Card className="border-l-4 border-sky-500">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold"><User size={20} />Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                            <input placeholder="Nombre" required className="p-2 border rounded" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
-                            <input placeholder="Apellido" required className="p-2 border rounded" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
-                            <input placeholder="DNI" required type="number" className="p-2 border rounded" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
-                            <input placeholder="Fecha Nac." required type="date" className="p-2 border rounded" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
-                            <input placeholder="Teléfono" type="tel" className="p-2 border rounded col-span-2" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre</label>
+                                <input placeholder="Nombre" required className="p-2 border rounded" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Apellido</label>
+                                <input placeholder="Apellido" required className="p-2 border rounded" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">DNI</label>
+                                <input placeholder="DNI" required type="number" className="p-2 border rounded" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Fecha Nac.</label>
+                                <input placeholder="Fecha Nac." required type="date" className="p-2 border rounded" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1 col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Teléfono</label>
+                                <input placeholder="Teléfono" type="tel" className="p-2 border rounded" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
+                            </div>
                         </div>
                     </Card>
 
