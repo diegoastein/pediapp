@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
     <link rel="manifest" href="manifest.json">
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PediApp</title>
@@ -22,7 +21,6 @@
         body { font-family: 'Nunito', sans-serif; background-color: #f0f9ff; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
@@ -52,17 +50,10 @@
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
-            
-            // Forzar persistencia local para Auth (Offline)
             setPersistence(auth, browserLocalPersistence);
-
-            // Inicialización moderna de Firestore con Caché persistente multi-pestaña
             db = initializeFirestore(app, {
-                localCache: persistentLocalCache({
-                    tabManager: persistentMultipleTabManager()
-                })
+                localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
             });
-
         } catch (e) {
             console.error("Error inicializando Firebase:", e);
         }
@@ -74,41 +65,31 @@
     </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef, Component } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
         
         // --- Icon System ---
         const Icon = ({ children, size = 24, className = "", ...props }) => (
-            <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width={size} height={size} viewBox="0 0 24 24" fill="none" 
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round" 
-                strokeLinejoin="round" className={`lucide ${className}`} {...props}
-            >
-                {children}
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`lucide ${className}`} {...props}>{children}</svg>
         );
-
         const User = (props) => <Icon {...props}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Icon>;
         const Plus = (props) => <Icon {...props}><path d="M5 12h14"/><path d="M12 5v14"/></Icon>;
         const Search = (props) => <Icon {...props}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>;
         const Trash2 = (props) => <Icon {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>;
-        const Save = (props) => <Icon {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Icon>;
         const ArrowLeft = (props) => <Icon {...props}><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></Icon>;
         const AlertCircle = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
         const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
         const Baby = (props) => <Icon {...props}><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></Icon>;
         const Stethoscope = (props) => <Icon {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></Icon>;
-        const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
-        const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
-        const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
         const LogOut = (props) => <Icon {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></Icon>;
-        const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
         const Activity = (props) => <Icon {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
         const Phone = (props) => <Icon {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></Icon>;
         const WifiOff = (props) => <Icon {...props}><line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.929a10 10 0 0 1 5.17-2.69"/><path d="M18.83 10.24a10 10 0 0 1 1.17.69"/><path d="M2 9.429c.355-.333.729-.646 1.12-.94"/><path d="M17.47 4.96c.78.36 1.53.8 2.22 1.3"/></Icon>;
+        const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
+        const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
+        const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
+        const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
 
-
-        // --- Helper Functions ---
+        // --- Helpers ---
         function calculateAge(birthDate) {
             if (!birthDate) return "";
             const today = new Date();
@@ -120,35 +101,72 @@
             if (months < 0) { years--; months += 12; }
             if (years >= 1) return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`;
             if (months >= 1) return `${months} mes${months !== 1 ? 'es' : ''}${days > 0 ? `, ${days} día${days !== 1 ? 's' : ''}` : ''}`;
-            if (days >= 0) return `${days} día${days !== 1 ? 's' : ''}`;
-            return "Fecha futura";
+            return `${days} día${days !== 1 ? 's' : ''}`;
         }
-        
         function formatDate(timestamp) {
             if (!timestamp) return 'Sin fecha';
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
+            return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text; document.body.appendChild(textarea); textarea.select();
+            try { document.execCommand('copy'); return true; } catch (err) { return false; } finally { document.body.removeChild(textarea); }
+        }
+        function buildBackupData(patients) {
+            return { metadata: { app: "PediApp", exportedAt: new Date().toISOString(), patientCount: patients.length }, patients };
+        }
+        function downloadBackup(data) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = `pediapp-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+            URL.revokeObjectURL(url);
+        }
+        function generatePatientSummary(patient) {
+            const age = calculateAge(patient.birthDate);
+            let summary = `--- Historia Clínica: ${patient.lastName}, ${patient.firstName} ---\nDNI: ${patient.dni}\n`;
+            if (patient.phone) summary += `Tel: ${patient.phone}\n`;
+            summary += `F. Nac: ${patient.birthDate} (${age})\n\n`;
+            summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            summary += `ANTECEDENTES PATOLÓGICOS:\n- ${patient.pathologicalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            if (patient.consultations?.length > 0) {
+                summary += `CONSULTAS:\n`;
+                [...patient.consultations].sort((a, b) => b.date - a.date).forEach(c => {
+                    summary += `\n--- ${formatDate(c.date)} ---\n`;
+                    if (c.motive?.length > 0) summary += `Motivo: ${c.motive.join(', ')}\n`;
+                    if (c.weight || c.height) summary += `P: ${c.weight}kg | T: ${c.height}cm\n`;
+                    if (c.notes) summary += `Notas: ${c.notes}\n`;
+                });
+            }
+            return summary;
         }
 
         // --- UI Components ---
         const Card = ({ children, className = "", onClick }) => (
-            <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>
-                {children}
-            </div>
+            <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>{children}</div>
         );
-
         const Button = ({ children, onClick, variant = "primary", className = "", type = "button", disabled = false }) => {
-            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
+            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50";
             const variants = {
                 primary: "bg-sky-500 text-white hover:bg-sky-600 shadow-lg shadow-sky-500/30",
                 secondary: "bg-slate-100 text-slate-700 hover:bg-slate-200",
                 danger: "bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200",
-                outline: "border-2 border-slate-200 text-slate-600 hover:border-sky-500 hover:text-sky-500"
+                outline: "border-2 border-slate-200 text-slate-600 hover:border-sky-500"
             };
+            return <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>{children}</button>;
+        };
+        const Modal = ({ children, isOpen, onClose, title }) => {
+            if (!isOpen) return null;
             return (
-                <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>
-                    {children}
-                </button>
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <Card className="p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-start border-b pb-3 mb-4 sticky top-0 bg-white">
+                            <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+                        </div>
+                        {children}
+                    </Card>
+                </div>
             );
         };
 
@@ -161,7 +179,7 @@
                 setInput(""); setIsOpen(false);
             };
             const handleRemove = (tagToRemove) => { onChange(value.filter(t => t !== tagToRemove)); };
-            const filteredOptions = options.filter(opt => opt.toLowerCase().includes(input.toLowerCase()) && !value.includes(opt));
+            const filteredOptions = options ? options.filter(opt => opt.toLowerCase().includes(input.toLowerCase()) && !value.includes(opt)) : [];
             return (
                 <div className="space-y-2 relative">
                     <label className="block text-sm font-semibold text-slate-700">{label}</label>
@@ -171,31 +189,23 @@
                                 {tag}<button type="button" onClick={() => handleRemove(tag)}><X size={14} /></button>
                             </span>
                         ))}
-                        <input
-                            type="text" value={input}
-                            onChange={(e) => { setInput(e.target.value); setIsOpen(true); }}
-                            onFocus={() => setIsOpen(true)}
-                            onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' && input.trim()) { e.preventDefault(); handleAdd(input.trim()); } }}
-                            className="bg-transparent outline-none flex-1 min-w-[120px] text-sm"
-                            placeholder={placeholder}
-                        />
+                        <input type="text" value={input} onChange={(e) => { setInput(e.target.value); setIsOpen(true); }}
+                            onFocus={() => setIsOpen(true)} onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+                            className="bg-transparent outline-none flex-1 min-w-[120px] text-sm" placeholder={placeholder} />
                     </div>
                     {isOpen && (input.length > 0 || filteredOptions.length > 0) && (
                         <div className="absolute z-10 top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
                             {filteredOptions.map(opt => (
                                 <div key={opt} className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-slate-700" onMouseDown={() => handleAdd(opt)}>{opt}</div>
                             ))}
-                            {input.trim() && !filteredOptions.includes(input.trim()) && (
-                                <div className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-sky-600 font-medium border-t border-slate-100" onMouseDown={() => handleAdd(input.trim())}>Agregar "{input}"</div>
-                            )}
+                            {input.trim() && <div className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-sky-600 border-t" onMouseDown={() => handleAdd(input.trim())}>Agregar "{input}"</div>}
                         </div>
                     )}
                 </div>
             );
         };
 
-        // --- Main App ---
+        // --- App Principal ---
         const App = () => {
             const [user, setUser] = useState(null);
             const [email, setEmail] = useState('');
@@ -207,8 +217,9 @@
             const [patients, setPatients] = useState([]);
             const [currentPatient, setCurrentPatient] = useState(null);
             const [searchTerm, setSearchTerm] = useState("");
-            const [loading, setLoading] = useState(true);
-            const formRef = useRef(null);
+            const [isAppLoading, setIsAppLoading] = useState(true);
+            const [sharePatientData, setSharePatientData] = useState(null);
+            const fileInputRef = useRef(null);
 
             const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
 
@@ -224,68 +235,55 @@
 
             useEffect(() => {
                 if (!auth) return;
-                const unsubscribe = onAuthStateChanged(auth, (currentUser) => { setUser(currentUser); setLoading(false); });
+                const unsubscribe = onAuthStateChanged(auth, (currentUser) => { setUser(currentUser); setIsAppLoading(false); });
                 return () => unsubscribe();
             }, [auth]);
 
             useEffect(() => {
                 if (!user || !db) { setPatients([]); return; }
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                
-                // onSnapshot funciona offline devolviendo los datos de la caché local
                 return onSnapshot(colRef, (snapshot) => {
                     const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // Ordenar por updatedAt descendente, priorizando valores numéricos si serverTimestamp aún es null (offline)
-                    loaded.sort((a, b) => {
-                        const timeA = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt || 0);
-                        const timeB = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt || 0);
-                        return timeB - timeA;
-                    });
+                    loaded.sort((a, b) => (b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt || 0)) - (a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt || 0)));
                     setPatients(loaded);
                 });
             }, [user, db, appId]);
 
+            const dynamicRepertoire = useMemo(() => {
+                const neonatal = new Set(["Prematuro", "Sano"]);
+                const pathological = new Set(["Asma", "Alergia"]);
+                const reasons = new Set(["Control", "Fiebre"]);
+                patients.forEach(p => {
+                    p.neonatalHistory?.forEach(v => neonatal.add(v));
+                    p.pathologicalHistory?.forEach(v => pathological.add(v));
+                    p.consultations?.forEach(c => c.motive?.forEach(v => reasons.add(v)));
+                });
+                return { neonatal: Array.from(neonatal).sort(), pathological: Array.from(pathological).sort(), reasons: Array.from(reasons).sort() };
+            }, [patients]);
+
             const handleAuth = async (e) => {
-                e.preventDefault(); setAuthError(''); setLoading(true);
+                e.preventDefault(); setAuthError(''); setIsAppLoading(true);
                 try {
                     if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
                     else await signInWithEmailAndPassword(auth, email, password);
-                } catch (err) {
-                    setAuthError(err.message);
-                } finally { setLoading(false); }
+                } catch (err) { setAuthError(err.message); } finally { setIsAppLoading(false); }
             };
 
             const handleSave = async (data) => {
                 if (!user || !db) return;
-                setLoading(true);
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                
-                // Usamos una fecha local como respaldo si estamos offline para que serverTimestamp no bloquee la promesa
-                const timestampValue = isOnline ? serverTimestamp() : Date.now();
-                const toSave = { ...data, updatedAt: timestampValue };
-                
+                const toSave = { ...data, updatedAt: isOnline ? serverTimestamp() : Date.now() };
                 try {
-                    if (currentPatient?.id) {
-                        // NO esperamos el await si estamos offline para no bloquear la UI
-                        updateDoc(doc(colRef, currentPatient.id), toSave);
-                    } else {
-                        addDoc(colRef, { ...toSave, createdAt: timestampValue });
-                    }
-                    
-                    // Salimos a la lista inmediatamente. Firestore guardará en IndexedDB y sincronizará luego.
-                    setView("list"); 
-                    setCurrentPatient(null);
-                } catch (e) { 
-                    alert("Error local: " + e.message); 
-                } finally {
-                    setLoading(false);
-                }
+                    if (currentPatient?.id) updateDoc(doc(colRef, currentPatient.id), toSave);
+                    else addDoc(colRef, { ...toSave, createdAt: isOnline ? serverTimestamp() : Date.now() });
+                    setView("list"); setCurrentPatient(null);
+                } catch (e) { alert("Error al procesar: " + e.message); }
             };
 
             const filtered = patients.filter(p => `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase()));
             const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
 
-            if (loading && !authError && patients.length === 0) return <div className="h-screen flex items-center justify-center text-slate-500 font-bold text-xl">Cargando PediApp...</div>;
+            if (isAppLoading && patients.length === 0) return <div className="h-screen flex items-center justify-center text-slate-500 font-bold text-xl">Cargando PediApp...</div>;
 
             if (!user) {
                 return (
@@ -309,19 +307,13 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl relative">
-                    {!isOnline && (
-                        <div className="bg-amber-500 text-white text-[10px] text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2">
-                            <WifiOff size={12} /> MODO OFFLINE - Los cambios se sincronizarán al conectar
-                        </div>
-                    )}
+                    {!isOnline && <div className="bg-amber-500 text-white text-[10px] text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2"><WifiOff size={12} /> MODO OFFLINE</div>}
                     
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sky-600"><Baby size={28} /><h1 className="text-xl font-bold text-slate-800">PediApp</h1></div>
                         <div className="flex items-center gap-2">
                             {view === 'form' && <Button variant="secondary" onClick={() => {setView("list"); setCurrentPatient(null);}} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>}
-                            {view === 'list' && (
-                                <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2"><LogOut size={20} /></button>
-                            )}
+                            {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2"><LogOut size={20} /></button>}
                         </div>
                     </header>
 
@@ -329,78 +321,82 @@
                         {view === 'list' ? (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                                        <input type="text" placeholder="Buscar paciente..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                    </div>
+                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
                                     <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full"><Plus size={20} /> Nuevo Paciente</Button>
+                                    <div className="flex gap-2 text-[10px]">
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar JSON</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar JSON</Button>
+                                        <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
+                                            const file = e.target.files[0]; if(!file) return;
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => {
+                                                try {
+                                                    const data = JSON.parse(ev.target.result);
+                                                    if(data.patients) data.patients.forEach(p => { delete p.id; handleSave(p); });
+                                                } catch(err) { alert("Error al importar"); }
+                                            };
+                                            reader.readAsText(file);
+                                        }} />
+                                    </div>
                                 </div>
 
                                 <div className="space-y-3">
                                     <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50">
                                         <div className="flex flex-wrap justify-between items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                                                {searchTerm ? `Resultados: ${filtered.length}` : `Nro total de paciente = ${patients.length}`}
-                                            </span>
-                                            {!searchTerm && patients.length > 10 && (
-                                                <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">
-                                                    Se muestran los ultimos diez pacientes ingresados
-                                                </span>
-                                            )}
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nro total de paciente = {patients.length}</span>
+                                            {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">Se muestran los ultimos diez pacientes ingresados</span>}
                                         </div>
                                     </div>
 
                                     {listToRender.map(p => (
-                                        <Card key={p.id} className="cursor-pointer relative hover:border-sky-200 transition-colors group" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                        <Card key={p.id} className="cursor-pointer relative group" onClick={() => { setCurrentPatient(p); setView('form'); }}>
                                             <div className="pr-16">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <h3 className="font-bold text-slate-800">{p.lastName}, {p.firstName}</h3>
-                                                    {p.pendingItems?.length > 0 && (
-                                                        <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase">
-                                                            <AlertCircle size={10} /> {p.pendingItems.length} pendientes
-                                                        </span>
-                                                    )}
+                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase"><AlertCircle size={10} /> {p.pendingItems.length} pendientes</span>}
                                                 </div>
-                                                <div className="mt-1 space-y-0.5">
-                                                    <p className="text-slate-500 text-xs flex items-center gap-1">
-                                                        <span className="font-bold text-slate-400">DNI:</span> {p.dni}
-                                                        <span className="mx-1 text-slate-300">•</span>
-                                                        <span className="text-slate-600">{calculateAge(p.birthDate)}</span>
-                                                    </p>
-                                                    {p.phone && (
-                                                        <p className="text-sky-600 text-xs flex items-center gap-1 font-medium">
-                                                            <Phone size={10} /> {p.phone}
-                                                        </p>
-                                                    )}
+                                                <div className="mt-1 space-y-0.5 text-xs">
+                                                    <p className="text-slate-500"><span className="font-bold text-slate-400">DNI:</span> {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
+                                                    {p.phone && <p className="text-sky-600 font-medium flex items-center gap-1"><Phone size={10} /> {p.phone}</p>}
                                                 </div>
                                             </div>
                                             <div className="absolute top-4 right-2 flex gap-1">
-                                                <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id)); }} className="text-rose-400 p-2 hover:bg-rose-50 rounded-full"><Trash2 size={18} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2"><Share2 size={18} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id)); }} className="text-rose-400 p-2"><Trash2 size={18} /></button>
                                             </div>
                                         </Card>
                                     ))}
                                 </div>
                             </div>
                         ) : (
-                            <PatientForm ref={formRef} initialData={currentPatient} onSave={handleSave} onCancel={() => setView("list")} options={{neonatal: [], pathological: [], reasons: []}} />
+                            <PatientForm initialData={currentPatient} onSave={handleSave} onCancel={() => {setView("list"); setCurrentPatient(null);}} options={dynamicRepertoire} />
                         )}
                     </main>
+
+                    {sharePatientData && (
+                        <Modal isOpen={!!sharePatientData} onClose={() => setSharePatientData(null)} title={`Compartir de ${sharePatientData.lastName}`}>
+                            <div className="bg-slate-50 p-3 rounded-lg border text-xs font-mono mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap">{generatePatientSummary(sharePatientData)}</div>
+                            <Button variant="primary" className="w-full" onClick={() => { copyToClipboard(generatePatientSummary(sharePatientData)); setSharePatientData(null); }}>Copiar al Portapapeles</Button>
+                        </Modal>
+                    )}
                 </div>
             );
         };
 
-        const PatientForm = React.forwardRef(({ initialData, onSave, onCancel, options }, ref) => {
+        const PatientForm = ({ initialData, onSave, onCancel, options }) => {
             const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [] });
             const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
             const [newPending, setNewPending] = useState("");
             const [showHistory, setShowHistory] = useState(false);
+            const [isSavingLocal, setIsSavingLocal] = useState(false);
+            const [editingConsultationId, setEditingConsultationId] = useState(null);
 
             useEffect(() => { if (initialData) setFormData({ ...initialData }); }, [initialData]);
 
-            const updateField = (field, value) => { setFormData(p => ({ ...p, [field]: value })); };
+            const updateField = (field, value) => setFormData(p => ({ ...p, [field]: value }));
 
             const handleSubmit = (e) => {
-                e.preventDefault();
+                e.preventDefault(); setIsSavingLocal(true);
                 let consultations = [...(formData.consultations || [])];
                 const { weight, height, headCircumference, notes, motive } = newConsultation;
                 if (weight || height || headCircumference || notes || motive.length > 0) {
@@ -411,7 +407,7 @@
             };
 
             return (
-                <form className="space-y-6 pb-24" onSubmit={handleSubmit}>
+                <form className="space-y-6 pb-24 animate-fade-in-up" onSubmit={handleSubmit}>
                     <Card className="border-l-4 border-sky-500">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><User size={18} /> Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -426,8 +422,8 @@
                     <Card>
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Activity size={18} /> Antecedentes</div>
                         <div className="space-y-3">
-                            <TagInput label="Neonatales" options={[]} value={formData.neonatalHistory} onChange={v => updateField('neonatalHistory', v)} />
-                            <TagInput label="Patológicos" options={[]} value={formData.pathologicalHistory} onChange={v => updateField('pathologicalHistory', v)} />
+                            <TagInput label="Neonatales" options={options.neonatal} value={formData.neonatalHistory} onChange={v => updateField('neonatalHistory', v)} />
+                            <TagInput label="Patológicos" options={options.pathological} value={formData.pathologicalHistory} onChange={v => updateField('pathologicalHistory', v)} />
                         </div>
                     </Card>
 
@@ -435,6 +431,7 @@
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Stethoscope size={18} /> Consulta Actual</div>
                         <div className="space-y-3 bg-slate-50 p-3 rounded-lg">
                             <input type="date" className="w-full p-2 border rounded text-sm" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
+                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
                                 <input placeholder="Peso" type="number" step="0.01" className="p-2 border rounded text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
                                 <input placeholder="Talla" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
@@ -442,12 +439,30 @@
                             </div>
                             <textarea placeholder="Evolución clínica..." className="w-full p-2 border rounded text-sm h-20" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
                         </div>
+                        
+                        <div className="mt-4">
+                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-sm font-bold text-slate-500 flex items-center gap-1">Historial {showHistory ? '▲' : '▼'}</button>
+                            {showHistory && (
+                                <div className="mt-3 space-y-2">
+                                    {formData.consultations?.map(c => (
+                                        <div key={c.id} className="p-2 border rounded bg-white text-xs">
+                                            <div className="flex justify-between font-bold text-sky-600">
+                                                <span>{formatDate(c.date)}</span>
+                                                <button type="button" onClick={() => updateField('consultations', formData.consultations.filter(x => x.id !== c.id))} className="text-rose-400"><Trash2 size={12} /></button>
+                                            </div>
+                                            <p className="font-semibold text-slate-700">{c.motive?.join(', ')}</p>
+                                            <p className="text-slate-500 italic">{c.notes}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </Card>
 
                     <Card className="bg-amber-50">
                         <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs tracking-wider"><AlertCircle size={18} /> Pendientes</div>
                         <div className="flex gap-2">
-                            <input className="flex-1 p-2 border rounded bg-white" value={newPending} onChange={e=>setNewPending(e.target.value)} />
+                            <input className="flex-1 p-2 border rounded bg-white text-sm" value={newPending} onChange={e=>setNewPending(e.target.value)} />
                             <Button variant="secondary" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={18}/></Button>
                         </div>
                         <ul className="mt-2 space-y-1">
@@ -460,12 +475,12 @@
                     </Card>
 
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 md:static md:bg-transparent md:p-0 md:border-0 z-40">
-                        <Button variant="danger" className="flex-1" onClick={onCancel}>Cancelar</Button>
-                        <Button type="submit" className="flex-1">Guardar Paciente</Button>
+                        <Button variant="danger" className="flex-1" onClick={onCancel} disabled={isSavingLocal}>Cancelar</Button>
+                        <Button type="submit" className="flex-1" disabled={isSavingLocal}>{isSavingLocal ? "Guardando..." : "Guardar Paciente"}</Button>
                     </div>
                 </form>
             );
-        });
+        };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
