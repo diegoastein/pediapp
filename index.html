@@ -23,11 +23,8 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
-        
-        /* Estilo para asegurar que la imagen ampliada no se corte */
-        .photo-container { isolation: isolate; }
     </style>
 </head>
 <body>
@@ -93,6 +90,7 @@
         const FileUp = (props) => <Icon {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></Icon>;
         const Camera = (props) => <Icon {...props}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>;
         const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
+        const Maximize = (props) => <Icon {...props}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -165,6 +163,7 @@
         const Card = ({ children, className = "", onClick }) => (
             <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>{children}</div>
         );
+
         const Button = ({ children, onClick, variant = "primary", className = "", type = "button", disabled = false }) => {
             const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50";
             const variants = {
@@ -175,16 +174,34 @@
             };
             return <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>{children}</button>;
         };
-        const Modal = ({ children, isOpen, onClose, title }) => {
+
+        const Modal = ({ children, isOpen, onClose, title, size = "md" }) => {
             if (!isOpen) return null;
+            const sizes = { md: "max-w-md", lg: "max-w-2xl", xl: "max-w-4xl" };
             return (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
-                    <Card className="p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-between items-start border-b pb-3 mb-4 sticky top-0 bg-white z-[60]">
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <Card className={`p-6 w-full ${sizes[size]} max-h-[90vh] overflow-y-auto shadow-2xl relative`} onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-start border-b pb-3 mb-4 sticky top-0 bg-white z-[110]">
                             <h3 className="text-xl font-bold text-slate-800">{title}</h3>
-                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X size={24} /></button>
                         </div>
                         {children}
+                    </Card>
+                </div>
+            );
+        };
+
+        const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, variant = "danger" }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 animate-fade-in" onClick={onCancel}>
+                    <Card className="p-6 w-full max-w-sm shadow-2xl animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
+                        <p className="text-slate-600 text-sm mb-6 leading-relaxed">{message}</p>
+                        <div className="flex gap-3">
+                            <Button variant="secondary" className="flex-1" onClick={onCancel}>Cancelar</Button>
+                            <Button variant={variant === "danger" ? "danger" : "primary"} className="flex-1" onClick={onConfirm}>Confirmar</Button>
+                        </div>
                     </Card>
                 </div>
             );
@@ -225,7 +242,7 @@
             );
         };
 
-        // --- App Principal ---
+        // --- Main App ---
         const App = () => {
             const [user, setUser] = useState(null);
             const [email, setEmail] = useState('');
@@ -239,8 +256,11 @@
             const [searchTerm, setSearchTerm] = useState("");
             const [isAppLoading, setIsAppLoading] = useState(true);
             const [sharePatientData, setSharePatientData] = useState(null);
-            const fileInputRef = useRef(null);
+            
+            // Reusable Confirm Modal State
+            const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
+            const fileInputRef = useRef(null);
             const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
 
             useEffect(() => {
@@ -300,10 +320,23 @@
                 } catch (e) { alert("Error al procesar: " + e.message); }
             };
 
+            const askConfirmDeletePatient = (e, p) => {
+                e.stopPropagation();
+                setConfirmState({
+                    isOpen: true,
+                    title: "¿Eliminar Paciente?",
+                    message: `¿Estás seguro de que quieres eliminar a ${p.firstName} ${p.lastName}? Esta acción no se puede deshacer.`,
+                    onConfirm: () => {
+                        deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id));
+                        setConfirmState({ ...confirmState, isOpen: false });
+                    }
+                });
+            };
+
             const filtered = patients.filter(p => `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase()));
             const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
 
-            if (isAppLoading && patients.length === 0) return <div className="h-screen flex items-center justify-center text-slate-500 font-bold text-xl">Cargando PediApp...</div>;
+            if (isAppLoading && patients.length === 0) return <div className="h-screen flex items-center justify-center text-slate-500 font-bold text-xl animate-pulse">Iniciando PediApp...</div>;
 
             if (!user) {
                 return (
@@ -326,26 +359,28 @@
             }
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl relative">
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl relative overflow-hidden">
+                    <ConfirmModal {...confirmState} onCancel={() => setConfirmState({...confirmState, isOpen: false})} />
+                    
                     {!isOnline && <div className="bg-amber-500 text-white text-[10px] text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2"><WifiOff size={12} /> MODO OFFLINE</div>}
                     
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sky-600"><Baby size={28} /><h1 className="text-xl font-bold text-slate-800">PediApp</h1></div>
+                        <div className="flex items-center gap-2 text-sky-600"><Baby size={28} /><h1 className="text-xl font-bold text-slate-800 tracking-tight">PediApp</h1></div>
                         <div className="flex items-center gap-2">
-                            {view === 'form' && <Button variant="secondary" onClick={() => {setView("list"); setCurrentPatient(null);}} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>}
-                            {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2"><LogOut size={20} /></button>}
+                            {view === 'form' && <Button variant="secondary" onClick={() => {}} className="hidden"><ArrowLeft size={16} /> Volver</Button>}
+                            {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2 transition-colors"><LogOut size={20} /></button>}
                         </div>
                     </header>
 
                     <main className="p-4">
                         {view === 'list' ? (
                             <div className="space-y-6 animate-fade-in">
-                                <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
-                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
-                                    <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full"><Plus size={20} /> Nuevo Paciente</Button>
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
+                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente por nombre o DNI..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                                    <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full py-3"><Plus size={20} /> Nuevo Paciente</Button>
                                     <div className="flex gap-2 text-[10px]">
-                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar JSON</Button>
-                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar JSON</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar Historial</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar Datos</Button>
                                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
                                             const file = e.target.files[0]; if(!file) return;
                                             const reader = new FileReader();
@@ -353,7 +388,7 @@
                                                 try {
                                                     const data = JSON.parse(ev.target.result);
                                                     if(data.patients) data.patients.forEach(p => { delete p.id; handleSave(p); });
-                                                } catch(err) { alert("Error al importar"); }
+                                                } catch(err) { alert("Error al importar el archivo JSON"); }
                                             };
                                             reader.readAsText(file);
                                         }} />
@@ -369,10 +404,10 @@
                                     </div>
 
                                     {listToRender.map(p => (
-                                        <Card key={p.id} className="cursor-pointer relative group" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                        <Card key={p.id} className="cursor-pointer relative group hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.98]" onClick={() => { setCurrentPatient(p); setView('form'); }}>
                                             <div className="pr-16">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="font-bold text-slate-800">{p.lastName}, {p.firstName}</h3>
+                                                    <h3 className="font-bold text-slate-800 leading-tight">{p.lastName}, {p.firstName}</h3>
                                                     {p.pendingItems?.length > 0 && <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase"><AlertCircle size={10} /> {p.pendingItems.length} pendientes</span>}
                                                 </div>
                                                 <div className="mt-1 space-y-0.5 text-xs">
@@ -380,30 +415,36 @@
                                                     {p.phone && <p className="text-sky-600 font-medium flex items-center gap-1"><Phone size={10} /> {p.phone}</p>}
                                                 </div>
                                             </div>
-                                            <div className="absolute top-4 right-2 flex gap-1">
-                                                <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2"><Share2 size={18} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id)); }} className="text-rose-400 p-2"><Trash2 size={18} /></button>
+                                            <div className="absolute top-4 right-2 flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2 hover:bg-sky-50 rounded-full"><Share2 size={18} /></button>
+                                                <button onClick={(e) => askConfirmDeletePatient(e, p)} className="text-rose-400 p-2 hover:bg-rose-50 rounded-full"><Trash2 size={18} /></button>
                                             </div>
                                         </Card>
                                     ))}
                                 </div>
                             </div>
                         ) : (
-                            <PatientForm initialData={currentPatient} onSave={handleSave} onCancel={() => {setView("list"); setCurrentPatient(null);}} options={dynamicRepertoire} />
+                            <PatientForm 
+                                initialData={currentPatient} 
+                                onSave={handleSave} 
+                                onCancel={() => {setView("list"); setCurrentPatient(null);}} 
+                                options={dynamicRepertoire} 
+                                setConfirmState={setConfirmState}
+                            />
                         )}
                     </main>
 
                     {sharePatientData && (
                         <Modal isOpen={!!sharePatientData} onClose={() => setSharePatientData(null)} title={`Compartir de ${sharePatientData.lastName}`}>
-                            <div className="bg-slate-50 p-3 rounded-lg border text-xs font-mono mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap">{generatePatientSummary(sharePatientData)}</div>
-                            <Button variant="primary" className="w-full" onClick={() => { copyToClipboard(generatePatientSummary(sharePatientData)); setSharePatientData(null); }}>Copiar al Portapapeles</Button>
+                            <div className="bg-slate-50 p-3 rounded-lg border text-xs font-mono mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap leading-relaxed">{generatePatientSummary(sharePatientData)}</div>
+                            <Button variant="primary" className="w-full py-3" onClick={() => { copyToClipboard(generatePatientSummary(sharePatientData)); setSharePatientData(null); }}>Copiar al Portapapeles</Button>
                         </Modal>
                     )}
                 </div>
             );
         };
 
-        const PatientForm = ({ initialData, onSave, onCancel, options }) => {
+        const PatientForm = ({ initialData, onSave, onCancel, options, setConfirmState }) => {
             const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] });
             const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
             const [newPending, setNewPending] = useState("");
@@ -411,12 +452,17 @@
             const [isSavingLocal, setIsSavingLocal] = useState(false);
             const [editingConsultationId, setEditingConsultationId] = useState(null);
             const [editData, setEditData] = useState(null);
+            const [expandedPhoto, setExpandedPhoto] = useState(null);
+            const [isDirty, setIsDirty] = useState(false);
 
             useEffect(() => { if (initialData) setFormData({ ...initialData }); }, [initialData]);
 
-            const updateField = (field, value) => setFormData(p => ({ ...p, [field]: value }));
+            const updateField = (field, value) => {
+                setFormData(p => ({ ...p, [field]: value }));
+                setIsDirty(true);
+            };
 
-            const handleImage = (e) => {
+            const handleImage = (e, capture = false) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
@@ -426,12 +472,12 @@
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
-                        const maxDim = 800; 
+                        const maxDim = 1000; 
                         let w = img.width, h = img.height;
                         if (w > maxDim || h > maxDim) { const r = Math.min(maxDim / w, maxDim / h); w *= r; h *= r; }
                         canvas.width = w; canvas.height = h;
                         ctx.drawImage(img, 0, 0, w, h);
-                        updateField('images', [...(formData.images || []), { id: Date.now(), src: canvas.toDataURL('image/jpeg', 0.7), date: new Date().toLocaleDateString('es-AR') }]);
+                        updateField('images', [...(formData.images || []), { id: Date.now(), src: canvas.toDataURL('image/jpeg', 0.8), date: new Date().toLocaleDateString('es-AR') }]);
                     };
                 };
                 reader.readAsDataURL(file);
@@ -448,6 +494,46 @@
                 onSave({ ...formData, consultations: consultations.sort((a,b) => b.date - a.date) });
             };
 
+            const handleRequestCancel = () => {
+                if (isDirty || newConsultation.notes || newConsultation.weight) {
+                    setConfirmState({
+                        isOpen: true,
+                        title: "¿Salir sin guardar?",
+                        message: "Has realizado cambios en la ficha. Si sales ahora, se perderán todos los datos no guardados.",
+                        onConfirm: () => {
+                            setConfirmState(p => ({ ...p, isOpen: false }));
+                            onCancel();
+                        }
+                    });
+                } else {
+                    onCancel();
+                }
+            };
+
+            const askDeleteConsultation = (id) => {
+                setConfirmState({
+                    isOpen: true,
+                    title: "¿Eliminar Consulta?",
+                    message: "¿Seguro que quieres borrar este registro del historial?",
+                    onConfirm: () => {
+                        updateField('consultations', formData.consultations.filter(x => x.id !== id));
+                        setConfirmState(p => ({ ...p, isOpen: false }));
+                    }
+                });
+            };
+
+            const askDeletePhoto = (id) => {
+                setConfirmState({
+                    isOpen: true,
+                    title: "¿Eliminar Foto?",
+                    message: "¿Quieres borrar este archivo adjunto?",
+                    onConfirm: () => {
+                        updateField('images', formData.images.filter(i => i.id !== id));
+                        setConfirmState(p => ({ ...p, isOpen: false }));
+                    }
+                });
+            };
+
             const startEdit = (c) => {
                 setEditingConsultationId(c.id);
                 setEditData({ ...c, dateStr: new Date(c.date).toISOString().split('T')[0] });
@@ -459,34 +545,37 @@
                 delete updated.dateStr;
                 const updatedConsultations = formData.consultations.map(c => c.id === editingConsultationId ? updated : c);
                 updateField('consultations', updatedConsultations.sort((a,b) => b.date - a.date));
-                setEditingConsultationId(null);
-                setEditData(null);
+                setEditingConsultationId(null); setEditData(null);
             };
 
             return (
                 <form className="space-y-6 pb-24 animate-fade-in-up" onSubmit={handleSubmit}>
-                    <Card className="border-l-4 border-sky-500">
+                    <div className="mb-4">
+                        <Button variant="secondary" onClick={handleRequestCancel} className="text-xs py-1"><ArrowLeft size={16} /> Volver a la Lista</Button>
+                    </div>
+
+                    <Card className="border-l-4 border-sky-500 shadow-lg">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><User size={18} /> Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre</label>
-                                <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nombre</label>
+                                <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Apellido</label>
-                                <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Apellido</label>
+                                <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">DNI</label>
-                                <input placeholder="DNI" required type="number" className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">DNI</label>
+                                <input placeholder="DNI" required type="number" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">F. Nacimiento</label>
-                                <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">F. Nacimiento</label>
+                                <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1 col-span-2">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Teléfono de contacto</label>
-                                <input placeholder="Teléfono" type="tel" className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Teléfono de contacto</label>
+                                <input placeholder="Ej: 11 1234 5678" type="tel" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
                             </div>
                         </div>
                     </Card>
@@ -499,71 +588,72 @@
                         </div>
                     </Card>
 
-                    <Card>
+                    <Card className="shadow-md">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Stethoscope size={18} /> Consulta Actual</div>
-                        <div className="space-y-3 bg-slate-50 p-3 rounded-lg">
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Consulta</label>
-                                <input type="date" className="w-full p-2 border rounded text-sm" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Fecha de Consulta</label>
+                                <input type="date" className="w-full p-2 border rounded-lg text-sm bg-white" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
                             </div>
-                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
+                            <TagInput label="Motivo de la visita" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Peso (kg)</label>
-                                    <input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Peso (kg)</label>
+                                    <input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Talla (cm)</label>
-                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Talla (cm)</label>
+                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase">P.C. (cm)</label>
-                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">P.C. (cm)</label>
+                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">Evolución / Notas</label>
-                                <textarea placeholder="Evolución clínica..." className="w-full p-2 border rounded text-sm h-20" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Evolución / Notas clínicas</label>
+                                <textarea placeholder="Redactar evolución..." className="w-full p-3 border rounded-lg text-sm h-28 resize-none bg-white" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
                             </div>
                         </div>
                         
                         <div className="mt-4">
-                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-sm font-bold text-slate-500 flex items-center gap-1">Historial {showHistory ? '▲' : '▼'}</button>
+                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-sky-600 transition-colors">Historial de consultas {showHistory ? '▲' : '▼'}</button>
                             {showHistory && (
-                                <div className="mt-3 space-y-2">
+                                <div className="mt-3 space-y-2 max-h-96 overflow-y-auto pr-1">
+                                    {formData.consultations?.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No hay consultas registradas</p>}
                                     {formData.consultations?.map(c => (
-                                        <div key={c.id} className="p-2 border rounded bg-white text-xs shadow-sm">
+                                        <div key={c.id} className="p-3 border rounded-xl bg-white text-xs shadow-sm border-slate-200">
                                             {editingConsultationId === c.id ? (
-                                                <div className="space-y-2">
-                                                    <input type="date" className="p-1 border rounded w-full" value={editData.dateStr} onChange={e => setEditData({...editData, dateStr: e.target.value})} />
+                                                <div className="space-y-3 animate-fade-in">
+                                                    <input type="date" className="p-2 border rounded-lg w-full" value={editData.dateStr} onChange={e => setEditData({...editData, dateStr: e.target.value})} />
                                                     <TagInput label="Motivo" options={options.reasons} value={editData.motive} onChange={v => setEditData({...editData, motive: v})} />
                                                     <div className="flex gap-2">
-                                                        <input placeholder="Peso" className="w-1/3 border p-1" value={editData.weight} onChange={e=>setEditData({...editData, weight: e.target.value})} />
-                                                        <input placeholder="Talla" className="w-1/3 border p-1" value={editData.height} onChange={e=>setEditData({...editData, height: e.target.value})} />
-                                                        <input placeholder="PC" className="w-1/3 border p-1" value={editData.headCircumference} onChange={e=>setEditData({...editData, headCircumference: e.target.value})} />
+                                                        <input placeholder="Peso" className="w-1/3 border p-2 rounded-lg text-center" value={editData.weight} onChange={e=>setEditData({...editData, weight: e.target.value})} />
+                                                        <input placeholder="Talla" className="w-1/3 border p-2 rounded-lg text-center" value={editData.height} onChange={e=>setEditData({...editData, height: e.target.value})} />
+                                                        <input placeholder="PC" className="w-1/3 border p-2 rounded-lg text-center" value={editData.headCircumference} onChange={e=>setEditData({...editData, headCircumference: e.target.value})} />
                                                     </div>
-                                                    <textarea className="w-full border p-1 h-16" value={editData.notes} onChange={e=>setEditData({...editData, notes: e.target.value})} />
+                                                    <textarea className="w-full border p-2 rounded-lg h-20" value={editData.notes} onChange={e=>setEditData({...editData, notes: e.target.value})} />
                                                     <div className="flex gap-2">
                                                         <Button variant="primary" className="flex-1 py-1" onClick={saveEdit}>Listo</Button>
-                                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>X</Button>
+                                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>Cerrar</Button>
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <div className="flex justify-between font-bold text-sky-600">
-                                                        <span>{formatDate(c.date)} ({calculateAgeAtDate(formData.birthDate, c.date)})</span>
+                                                    <div className="flex justify-between font-bold text-sky-600 mb-2">
+                                                        <span className="flex items-center gap-2">{formatDate(c.date)} <span className="bg-sky-50 text-[10px] px-2 py-0.5 rounded-full border border-sky-100">{calculateAgeAtDate(formData.birthDate, c.date)}</span></span>
                                                         <div className="flex gap-2">
-                                                            <button type="button" onClick={() => startEdit(c)} className="text-sky-500"><Edit size={14} /></button>
-                                                            <button type="button" onClick={() => updateField('consultations', formData.consultations.filter(x => x.id !== c.id))} className="text-rose-400"><Trash2 size={14} /></button>
+                                                            <button type="button" onClick={() => startEdit(c)} className="text-sky-500 hover:bg-sky-50 p-1.5 rounded-full"><Edit size={14} /></button>
+                                                            <button type="button" onClick={() => askDeleteConsultation(c.id)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-full"><Trash2 size={14} /></button>
                                                         </div>
                                                     </div>
-                                                    <p className="font-semibold text-slate-700 mt-1">{c.motive?.join(', ')}</p>
+                                                    <p className="font-semibold text-slate-800 mb-1">{c.motive?.join(', ') || 'Sin motivo especificado'}</p>
                                                     {(c.weight || c.height || c.headCircumference) && (
-                                                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">
+                                                        <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-2">
                                                             {c.weight && `P: ${c.weight}kg `}{c.height && `| T: ${c.height}cm `}{c.headCircumference && `| PC: ${c.headCircumference}cm`}
                                                         </p>
                                                     )}
-                                                    <p className="text-slate-500 italic mt-1 leading-relaxed">{c.notes}</p>
+                                                    <p className="text-slate-600 italic whitespace-pre-wrap leading-relaxed bg-slate-50 p-2 rounded-lg">{c.notes || 'Sin notas de evolución'}</p>
                                                 </>
                                             )}
                                         </div>
@@ -573,58 +663,82 @@
                         </div>
                     </Card>
 
-                    <Card className="photo-container">
+                    <Card className="photo-container shadow-md">
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex gap-2 text-sky-800 font-bold uppercase text-xs tracking-wider"><FileUp size={18} /> Adjuntos / Fotos</div>
                             <div className="flex gap-2">
-                                <label className="bg-sky-50 text-sky-600 p-2 rounded-lg cursor-pointer hover:bg-sky-100 transition-colors" title="Galería">
-                                    <Plus size={18} />
-                                    <input type="file" className="hidden" accept="image/*" onChange={handleImage} />
+                                <label className="bg-sky-50 text-sky-600 p-2.5 rounded-xl cursor-pointer hover:bg-sky-100 transition-all shadow-sm" title="Galería">
+                                    <Plus size={20} />
+                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImage(e)} />
                                 </label>
-                                <label className="bg-sky-100 text-sky-700 p-2 rounded-lg cursor-pointer hover:bg-sky-200 transition-colors" title="Tomar Foto">
-                                    <Camera size={18} />
-                                    <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleImage} />
+                                <label className="bg-sky-100 text-sky-700 p-2.5 rounded-xl cursor-pointer hover:bg-sky-200 transition-all shadow-sm" title="Tomar Foto">
+                                    <Camera size={20} />
+                                    <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => handleImage(e)} />
                                 </label>
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 gap-3">
                             {(formData.images || []).map(img => (
-                                <div key={img.id} className="relative aspect-square rounded-lg border group bg-slate-50">
+                                <div key={img.id} className="relative aspect-square rounded-xl border-2 border-slate-100 group bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                                     <img 
                                         src={img.src} 
-                                        className="w-full h-full object-cover rounded-lg transition-all duration-300 transform origin-center hover:scale-[3] hover:z-[100] hover:shadow-2xl hover:relative cursor-zoom-in" 
+                                        onClick={() => setExpandedPhoto(img)}
+                                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
                                     />
                                     <button 
                                         type="button" 
-                                        onClick={() => updateField('images', formData.images.filter(i => i.id !== img.id))} 
-                                        className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 shadow-md z-[110] group-hover:opacity-0 transition-opacity"
+                                        onClick={() => askDeletePhoto(img.id)} 
+                                        className="absolute top-1 right-1 bg-rose-500/90 text-white rounded-full p-1 shadow-lg z-10 backdrop-blur-sm"
                                     >
-                                        <X size={10} />
+                                        <X size={12} />
                                     </button>
                                 </div>
                             ))}
+                            {(formData.images?.length === 0) && (
+                                <div className="col-span-3 py-6 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs font-bold uppercase tracking-widest">
+                                    Sin archivos cargados
+                                </div>
+                            )}
                         </div>
                     </Card>
 
-                    <Card className="bg-amber-50">
-                        <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs tracking-wider"><AlertCircle size={18} /> Pendientes</div>
+                    <Card className="bg-amber-50 border-amber-200 shadow-sm">
+                        <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs tracking-wider"><AlertCircle size={18} /> Pendientes de seguimiento</div>
                         <div className="flex gap-2">
-                            <input className="flex-1 p-2 border rounded bg-white text-sm" value={newPending} onChange={e=>setNewPending(e.target.value)} />
-                            <Button variant="secondary" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={18}/></Button>
+                            <input className="flex-1 p-2.5 border border-amber-200 rounded-xl bg-white text-sm focus:ring-2 ring-amber-100 outline-none" value={newPending} placeholder="Ej: Traer carnet de vacunas..." onChange={e=>setNewPending(e.target.value)} />
+                            <Button variant="primary" className="!bg-amber-500 hover:!bg-amber-600 shadow-amber-500/20" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={20}/></Button>
                         </div>
-                        <ul className="mt-2 space-y-1">
+                        <ul className="mt-3 space-y-2">
                             {(formData.pendingItems || []).map(i => (
-                                <li key={i.id} className="flex justify-between items-center p-2 bg-white rounded border text-sm shadow-sm">
-                                    {i.text}<button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500"><CheckCircle size={18}/></button>
+                                <li key={i.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-amber-100 text-sm shadow-sm animate-fade-in">
+                                    <span className="text-slate-700">{i.text}</span>
+                                    <button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500 hover:bg-emerald-50 p-1 rounded-full"><CheckCircle size={20}/></button>
                                 </li>
                             ))}
                         </ul>
                     </Card>
 
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 md:static md:bg-transparent md:p-0 md:border-0 z-40">
-                        <Button variant="danger" className="flex-1" onClick={onCancel} disabled={isSavingLocal}>Cancelar</Button>
-                        <Button type="submit" className="flex-1" disabled={isSavingLocal}>{isSavingLocal ? "Guardando..." : "Guardar Paciente"}</Button>
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex gap-4 md:static md:bg-transparent md:p-0 md:border-0 z-40">
+                        <Button variant="danger" className="flex-1 py-3" onClick={handleRequestCancel} disabled={isSavingLocal}>Cancelar</Button>
+                        <Button type="submit" className="flex-1 py-3" disabled={isSavingLocal}>{isSavingLocal ? "Procesando..." : "Guardar Ficha"}</Button>
                     </div>
+
+                    {/* Lightbox para fotos */}
+                    {expandedPhoto && (
+                        <div className="fixed inset-0 bg-black/95 z-[300] flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setExpandedPhoto(null)}>
+                            <button className="absolute top-6 right-6 text-white bg-white/20 p-3 rounded-full hover:bg-white/40 transition-colors">
+                                <X size={32} />
+                            </button>
+                            <img 
+                                src={expandedPhoto.src} 
+                                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-fade-in-up" 
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="mt-6 text-white font-bold tracking-widest text-sm bg-white/10 px-6 py-2 rounded-full backdrop-blur-md border border-white/20">
+                                {expandedPhoto.date}
+                            </div>
+                        </div>
+                    )}
                 </form>
             );
         };
