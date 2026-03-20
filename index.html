@@ -99,6 +99,7 @@
         const LogOut = (props) => <Icon {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></Icon>;
         const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
         const Activity = (props) => <Icon {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
+        const Phone = (props) => <Icon {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></Icon>;
 
 
         // --- Helper Functions ---
@@ -451,7 +452,7 @@
                     <main className="p-4">
                         {dbError && <div className="bg-rose-50 p-4 rounded-xl text-rose-600 font-bold mb-4">{dbError}</div>}
                         {view === 'list' ? (
-                            <div className="space-y-6">
+                            <div className="space-y-6 animate-fade-in">
                                 <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -464,19 +465,55 @@
                                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleSave} />
                                     </div>
                                 </div>
+
                                 <div className="space-y-3">
+                                    {/* Patient Counter */}
+                                    <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50">
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                                {searchTerm ? `Resultados: ${filtered.length}` : `Nro total de pacientes = ${patients.length}`}
+                                            </span>
+                                            {!searchTerm && patients.length > 10 && (
+                                                <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">
+                                                    Se muestran los últimos diez pacientes ingresados
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     {listToRender.map(p => (
-                                        <Card key={p.id} className="cursor-pointer relative" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                        <Card key={p.id} className="cursor-pointer relative hover:border-sky-200 transition-colors group" onClick={() => { setCurrentPatient(p); setView('form'); }}>
                                             <div className="pr-16">
-                                                <h3 className="font-bold text-slate-800">{p.lastName}, {p.firstName}</h3>
-                                                <p className="text-slate-500 text-xs">DNI: {p.dni} | {calculateAge(p.birthDate)}</p>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h3 className="font-bold text-slate-800">{p.lastName}, {p.firstName}</h3>
+                                                    {p.pendingItems?.length > 0 && (
+                                                        <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase">
+                                                            <AlertCircle size={10} /> {p.pendingItems.length} pendientes
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="mt-1 space-y-0.5">
+                                                    <p className="text-slate-500 text-xs flex items-center gap-1">
+                                                        <span className="font-bold text-slate-400">DNI:</span> {p.dni}
+                                                        <span className="mx-1 text-slate-300">•</span>
+                                                        <span className="text-slate-600">{calculateAge(p.birthDate)}</span>
+                                                    </p>
+                                                    {p.phone && (
+                                                        <p className="text-sky-600 text-xs flex items-center gap-1 font-medium">
+                                                            <Phone size={10} /> {p.phone}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="absolute top-4 right-2 flex gap-1">
-                                                <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2"><Share2 size={18} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); setConfirmAction({ title: "¿Eliminar paciente?", message: `¿Estás seguro de eliminar a ${p.firstName}? Esta acción no se puede deshacer.`, onConfirm: async () => { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id)); setConfirmAction(null); } }); }} className="text-rose-400 p-2"><Trash2 size={18} /></button>
+                                            <div className="absolute top-4 right-2 flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2 hover:bg-sky-50 rounded-full"><Share2 size={18} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); setConfirmAction({ title: "¿Eliminar paciente?", message: `¿Estás seguro de eliminar a ${p.firstName}? Esta acción no se puede deshacer.`, onConfirm: async () => { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id)); setConfirmAction(null); } }); }} className="text-rose-400 p-2 hover:bg-rose-50 rounded-full"><Trash2 size={18} /></button>
                                             </div>
                                         </Card>
                                     ))}
+                                    {searchTerm && filtered.length === 0 && (
+                                        <div className="py-10 text-center text-slate-400 text-sm">No se encontraron pacientes que coincidan con la búsqueda.</div>
+                                    )}
                                 </div>
                             </div>
                         ) : (
@@ -490,7 +527,7 @@
         const PatientForm = React.forwardRef(({ initialData, onSave, onCancel, options }, ref) => {
             const [saving, setSaving] = useState(false);
             const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], images: [], consultations: [] });
-            const [newConsultation, setNewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
+            const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
             const [newPending, setNewPending] = useState("");
             const [showHistory, setShowHistory] = useState(false);
             const [editingId, setEditingId] = useState(null);
@@ -504,27 +541,6 @@
             }));
 
             const updateField = (field, value) => { setFormData(p => ({ ...p, [field]: value })); setIsDirty(true); };
-
-            const handleImage = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const img = new Image();
-                    img.src = reader.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        const maxDim = 800; 
-                        let w = img.width, h = img.height;
-                        if (w > maxDim || h > maxDim) { const r = Math.min(maxDim / w, maxDim / h); w *= r; h *= r; }
-                        canvas.width = w; canvas.height = h;
-                        ctx.drawImage(img, 0, 0, w, h);
-                        updateField('images', [...(formData.images || []), { id: Date.now(), src: canvas.toDataURL('image/jpeg', 0.7), date: new Date().toLocaleDateString('es-AR') }]);
-                    };
-                };
-                reader.readAsDataURL(file);
-            };
 
             const handleSubmit = (e) => {
                 e.preventDefault(); setSaving(true);
@@ -546,7 +562,7 @@
             };
 
             return (
-                <form className="space-y-6 pb-24" onSubmit={handleSubmit}>
+                <form className="space-y-6 pb-24 animate-fade-in-up" onSubmit={handleSubmit}>
                     <Card className="border-l-4 border-sky-500">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold"><User size={20} />Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -584,14 +600,14 @@
                     <Card>
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold"><Stethoscope size={20} />Consulta Actual</div>
                         <div className="space-y-3 bg-slate-50 p-3 rounded-lg">
-                            <input type="date" className="w-full p-2 border rounded text-sm" value={newConsultation.date} onChange={e => setNewConsultation({...newConsultation, date: e.target.value})} />
-                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setNewConsultation({...newConsultation, motive: v})} />
+                            <input type="date" className="w-full p-2 border rounded text-sm" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
+                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
-                                <input placeholder="Peso" type="number" step="0.01" className="p-2 border rounded text-xs" value={newConsultation.weight} onChange={e => setNewConsultation({...newConsultation, weight: e.target.value})} />
-                                <input placeholder="Talla" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.height} onChange={e => setNewConsultation({...newConsultation, height: e.target.value})} />
-                                <input placeholder="P.C." type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.headCircumference} onChange={e => setNewConsultation({...newConsultation, headCircumference: e.target.value})} />
+                                <input placeholder="Peso" type="number" step="0.01" className="p-2 border rounded text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
+                                <input placeholder="Talla" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
+                                <input placeholder="P.C." type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
                             </div>
-                            <textarea placeholder="Evolución clínica..." className="w-full p-2 border rounded text-sm h-20" value={newConsultation.notes} onChange={e => setNewConsultation({...newConsultation, notes: e.target.value})} />
+                            <textarea placeholder="Evolución clínica..." className="w-full p-2 border rounded text-sm h-20" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
                         </div>
                         
                         <div className="mt-4">
