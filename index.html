@@ -25,6 +25,9 @@
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
         .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
+        
+        /* Estilo para asegurar que la imagen ampliada no se corte */
+        .photo-container { isolation: isolate; }
     </style>
 </head>
 <body>
@@ -87,7 +90,7 @@
         const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
         const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
-        const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
+        const FileUp = (props) => <Icon {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -113,7 +116,7 @@
             let days = consultation.getDate() - birth.getDate();
             if (days < 0) { months--; days += new Date(consultation.getFullYear(), consultation.getMonth(), 0).getDate(); }
             if (months < 0) { years--; months += 12; }
-            if (years >= 1) return `${years} a${years !== 1 ? 's' : ''}, ${months} m`;
+            if (years >= 1) return `${years} a, ${months} m`;
             if (months >= 1) return `${months} m, ${days} d`;
             return `${days} d`;
         }
@@ -175,7 +178,7 @@
             return (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
                     <Card className="p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-between items-start border-b pb-3 mb-4 sticky top-0 bg-white">
+                        <div className="flex justify-between items-start border-b pb-3 mb-4 sticky top-0 bg-white z-[60]">
                             <h3 className="text-xl font-bold text-slate-800">{title}</h3>
                             <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
                         </div>
@@ -399,7 +402,7 @@
         };
 
         const PatientForm = ({ initialData, onSave, onCancel, options }) => {
-            const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [] });
+            const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] });
             const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
             const [newPending, setNewPending] = useState("");
             const [showHistory, setShowHistory] = useState(false);
@@ -408,6 +411,27 @@
             useEffect(() => { if (initialData) setFormData({ ...initialData }); }, [initialData]);
 
             const updateField = (field, value) => setFormData(p => ({ ...p, [field]: value }));
+
+            const handleImage = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const img = new Image();
+                    img.src = reader.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const maxDim = 800; 
+                        let w = img.width, h = img.height;
+                        if (w > maxDim || h > maxDim) { const r = Math.min(maxDim / w, maxDim / h); w *= r; h *= r; }
+                        canvas.width = w; canvas.height = h;
+                        ctx.drawImage(img, 0, 0, w, h);
+                        updateField('images', [...(formData.images || []), { id: Date.now(), src: canvas.toDataURL('image/jpeg', 0.7), date: new Date().toLocaleDateString('es-AR') }]);
+                    };
+                };
+                reader.readAsDataURL(file);
+            };
 
             const handleSubmit = (e) => {
                 e.preventDefault(); setIsSavingLocal(true);
@@ -489,7 +513,7 @@
                             {showHistory && (
                                 <div className="mt-3 space-y-2">
                                     {formData.consultations?.map(c => (
-                                        <div key={c.id} className="p-2 border rounded bg-white text-xs">
+                                        <div key={c.id} className="p-2 border rounded bg-white text-xs shadow-sm">
                                             <div className="flex justify-between font-bold text-sky-600">
                                                 <span>{formatDate(c.date)} ({calculateAgeAtDate(formData.birthDate, c.date)})</span>
                                                 <button type="button" onClick={() => updateField('consultations', formData.consultations.filter(x => x.id !== c.id))} className="text-rose-400"><Trash2 size={12} /></button>
@@ -503,6 +527,33 @@
                         </div>
                     </Card>
 
+                    <Card className="photo-container">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex gap-2 text-sky-800 font-bold uppercase text-xs tracking-wider"><FileUp size={18} /> Adjuntos / Fotos</div>
+                            <label className="bg-sky-50 text-sky-600 p-2 rounded-lg cursor-pointer hover:bg-sky-100 transition-colors">
+                                <Plus size={18} />
+                                <input type="file" className="hidden" accept="image/*" onChange={handleImage} />
+                            </label>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {(formData.images || []).map(img => (
+                                <div key={img.id} className="relative aspect-square rounded-lg border group bg-slate-50">
+                                    <img 
+                                        src={img.src} 
+                                        className="w-full h-full object-cover rounded-lg transition-all duration-300 transform origin-center hover:scale-[3] hover:z-[100] hover:shadow-2xl hover:relative cursor-zoom-in" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => updateField('images', formData.images.filter(i => i.id !== img.id))} 
+                                        className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 shadow-md z-[110] group-hover:opacity-0 transition-opacity"
+                                    >
+                                        <X size={10} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+
                     <Card className="bg-amber-50">
                         <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs tracking-wider"><AlertCircle size={18} /> Pendientes</div>
                         <div className="flex gap-2">
@@ -511,7 +562,7 @@
                         </div>
                         <ul className="mt-2 space-y-1">
                             {(formData.pendingItems || []).map(i => (
-                                <li key={i.id} className="flex justify-between items-center p-2 bg-white rounded border text-sm">
+                                <li key={i.id} className="flex justify-between items-center p-2 bg-white rounded border text-sm shadow-sm">
                                     {i.text}<button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500"><CheckCircle size={18}/></button>
                                 </li>
                             ))}
