@@ -51,12 +51,22 @@
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
-            setPersistence(auth, browserLocalPersistence);
-            db = initializeFirestore(app, {
-                localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-            });
+            setPersistence(auth, browserLocalPersistence).catch(console.error);
+            
+            // Inicialización con manejo de errores para IndexedDB bloqueado
+            try {
+                db = initializeFirestore(app, {
+                    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+                });
+            } catch (cacheError) {
+                console.warn("Firestore: No se pudo activar la caché persistente, usando memoria.", cacheError);
+                // Fallback a inicialización básica sin caché persistente si falla
+                import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js").then(m => {
+                    db = m.getFirestore(app);
+                });
+            }
         } catch (e) {
-            console.error("Error inicializando Firebase:", e);
+            console.error("Error crítico de Firebase:", e);
         }
 
         window.firebaseData = { 
@@ -67,8 +77,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('PediApp: Service Worker registrado'))
-                    .catch(err => console.warn('PediApp: SW falló', err));
+                    .then(reg => console.log('SW ok'))
+                    .catch(err => console.warn('SW error', err));
             });
         }
     </script>
@@ -168,10 +178,16 @@
         }
 
         // --- UI Components ---
-        const LoadingScreen = ({ message = "Iniciando PediApp..." }) => (
-            <div className="h-screen flex flex-col items-center justify-center text-slate-500 gap-4">
+        const LoadingScreen = ({ message = "Iniciando PediApp...", showRetry = false }) => (
+            <div className="h-screen flex flex-col items-center justify-center text-slate-500 gap-6 p-10 text-center">
                 <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="font-bold text-xl animate-pulse">{message}</p>
+                <div className="space-y-2">
+                    <p className="font-bold text-xl">{message}</p>
+                    {showRetry && <p className="text-sm text-slate-400">Verifica tu conexión o intenta recargar.</p>}
+                </div>
+                {showRetry && (
+                    <button onClick={() => window.location.reload()} className="bg-sky-500 text-white px-6 py-2 rounded-full font-bold shadow-lg">Recargar ahora</button>
+                )}
             </div>
         );
 
@@ -271,14 +287,29 @@
             const [currentPatient, setCurrentPatient] = useState(null);
             const [searchTerm, setSearchTerm] = useState("");
             const [isAppLoading, setIsAppLoading] = useState(true);
+            const [hasTimedOut, setHasTimedOut] = useState(false);
             const [sharePatientData, setSharePatientData] = useState(null);
             const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
             const fileInputRef = useRef(null);
 
+            // Timeout de seguridad: Si pasan 8 segundos y no carga, mostrar ayuda
             useEffect(() => {
-                const checkFb = () => { if (window.firebaseData?.auth && !fb) setFb(window.firebaseData); };
-                const interval = setInterval(checkFb, 100); checkFb();
+                const timer = setTimeout(() => {
+                    if (isAppLoading) setHasTimedOut(true);
+                }, 8000);
+                return () => clearTimeout(timer);
+            }, [isAppLoading]);
+
+            // Detección reactiva de FirebaseData
+            useEffect(() => {
+                const checkFb = () => {
+                    if (window.firebaseData?.auth && !fb) {
+                        setFb(window.firebaseData);
+                    }
+                };
+                const interval = setInterval(checkFb, 150);
+                checkFb();
                 return () => clearInterval(interval);
             }, [fb]);
 
@@ -292,24 +323,48 @@
                 };
             }, []);
 
+            // Auth Listener
             useEffect(() => {
                 if (!fb?.auth) return;
-                const unsubscribe = fb.onAuthStateChanged(fb.auth, (currentUser) => { setUser(currentUser); setIsAppLoading(false); });
-                return () => unsubscribe();
+                try {
+                    const unsubscribe = fb.onAuthStateChanged(fb.auth, (currentUser) => { 
+                        setUser(currentUser); 
+                        setIsAppLoading(false); 
+                    }, (err) => {
+                        console.error("Auth error:", err);
+                        setIsAppLoading(false);
+                    });
+                    return () => unsubscribe();
+                } catch (e) {
+                    console.error("Falla al iniciar listener de auth:", e);
+                    setIsAppLoading(false);
+                }
             }, [fb]);
 
+            // Data Fetching
             useEffect(() => {
                 if (!user || !fb?.db) { setPatients([]); return; }
-                const colRef = fb.collection(fb.db, 'artifacts', fb.appId, 'users', user.uid, 'patients');
-                const unsubscribe = fb.onSnapshot(colRef, (snapshot) => {
-                    const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    loaded.sort((a, b) => (b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (Number(b.updatedAt) || 0)) - (a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (Number(a.updatedAt) || 0)));
-                    setPatients(loaded);
-                }, (error) => { console.error(error); setIsAppLoading(false); });
-                return () => unsubscribe();
+                try {
+                    const colRef = fb.collection(fb.db, 'artifacts', fb.appId, 'users', user.uid, 'patients');
+                    const unsubscribe = fb.onSnapshot(colRef, (snapshot) => {
+                        const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        loaded.sort((a, b) => {
+                            const tA = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (Number(a.updatedAt) || 0);
+                            const tB = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (Number(b.updatedAt) || 0);
+                            return tB - tA;
+                        });
+                        setPatients(loaded);
+                    }, (error) => {
+                        console.error("Firestore Snapshot error:", error);
+                        setIsAppLoading(false);
+                    });
+                    return () => unsubscribe();
+                } catch (e) {
+                    console.error("Falla al iniciar snapshot de datos:", e);
+                }
             }, [user, fb]);
 
-            if (!fb || isAppLoading) return <LoadingScreen />;
+            if (!fb || isAppLoading) return <LoadingScreen showRetry={hasTimedOut} />;
 
             const dynamicRepertoire = patients.length > 0 ? (function() {
                 const neonatal = new Set(["Prematuro", "Sano"]);
@@ -329,7 +384,9 @@
                     if (isRegistering) await fb.createUserWithEmailAndPassword(fb.auth, email, password);
                     else await fb.signInWithEmailAndPassword(fb.auth, email, password);
                 } catch (err) { 
-                    let msg = err.message; if (err.code === 'auth/invalid-credential') msg = "Credenciales incorrectas.";
+                    let msg = err.message;
+                    if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') msg = "Usuario o contraseña incorrectos.";
+                    if (err.code === 'auth/user-not-found') msg = "El usuario no existe.";
                     setAuthError(msg); 
                 } finally { setIsAppLoading(false); }
             };
@@ -342,7 +399,20 @@
                     if (currentPatient?.id) fb.updateDoc(fb.doc(colRef, currentPatient.id), toSave);
                     else fb.addDoc(colRef, { ...toSave, createdAt: isOnline ? fb.serverTimestamp() : Date.now() });
                     setView("list"); setCurrentPatient(null);
-                } catch (e) { alert("Error: " + e.message); }
+                } catch (e) { alert("Error al guardar: " + e.message); }
+            };
+
+            const askConfirmDeletePatient = (e, p) => {
+                e.stopPropagation();
+                setConfirmState({
+                    isOpen: true,
+                    title: "¿Eliminar Paciente?",
+                    message: `¿Estás seguro de eliminar a ${p.firstName} ${p.lastName}? Esta acción es permanente.`,
+                    onConfirm: () => {
+                        fb.deleteDoc(fb.doc(fb.db, 'artifacts', fb.appId, 'users', user.uid, 'patients', p.id));
+                        setConfirmState({ ...confirmState, isOpen: false });
+                    }
+                });
             };
 
             const filtered = patients.filter(p => `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -357,8 +427,8 @@
                                 <h1 className="text-2xl font-bold text-slate-800">PediApp</h1>
                             </div>
                             <form className="space-y-4" onSubmit={handleAuth}>
-                                <div><label className="block text-sm font-bold text-slate-700 px-1">Email</label><input type="email" required className="w-full p-3 border rounded-lg" value={email} onChange={e => setEmail(e.target.value)} /></div>
-                                <div><label className="block text-sm font-bold text-slate-700 px-1">Contraseña</label><input type="password" required className="w-full p-3 border rounded-lg" value={password} onChange={e => setPassword(e.target.value)} /></div>
+                                <div><label className="block text-sm font-bold text-slate-700 px-1">Email</label><input type="email" required className="w-full p-3 border rounded-lg focus:ring-2 ring-sky-200 outline-none" value={email} onChange={e => setEmail(e.target.value)} /></div>
+                                <div><label className="block text-sm font-bold text-slate-700 px-1">Contraseña</label><input type="password" required className="w-full p-3 border rounded-lg focus:ring-2 ring-sky-200 outline-none" value={password} onChange={e => setPassword(e.target.value)} /></div>
                                 <Button type="submit" className="w-full py-3">{isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'}</Button>
                             </form>
                             <button onClick={() => setIsRegistering(!isRegistering)} className="w-full mt-4 text-sky-600 text-sm font-bold">{isRegistering ? 'Ya tengo cuenta' : 'Crear cuenta'}</button>
@@ -371,7 +441,9 @@
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl relative overflow-hidden">
                     <ConfirmModal {...confirmState} onCancel={() => setConfirmState({...confirmState, isOpen: false})} />
+                    
                     {!isOnline && <div className="bg-amber-500 text-white text-[10px] text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2 animate-pulse"><WifiOff size={12} /> MODO OFFLINE</div>}
+                    
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sky-600"><Baby size={28} /><h1 className="text-xl font-bold text-slate-800 tracking-tight">PediApp</h1></div>
                         <div className="flex items-center gap-2">
@@ -383,11 +455,11 @@
                         {view === 'list' ? (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
-                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
                                     <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full py-3"><Plus size={20} /> Nuevo Paciente</Button>
                                     <div className="flex gap-2 text-[10px]">
-                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar</Button>
-                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar Historial</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar Datos</Button>
                                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
                                             const file = e.target.files[0]; if(!file) return;
                                             const reader = new FileReader();
@@ -400,11 +472,13 @@
                                         }} />
                                     </div>
                                 </div>
+
                                 <div className="space-y-3">
-                                    <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50 flex justify-between items-center">
+                                    <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50 flex justify-between items-center px-2">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Total: {patients.length} pacientes</span>
                                         {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase">Últimos 10 ingresos</span>}
                                     </div>
+
                                     {listToRender.map(p => (
                                         <Card key={p.id} className="cursor-pointer relative group hover:border-sky-300 transition-all shadow-sm active:scale-[0.98]" onClick={() => { setCurrentPatient(p); setView('form'); }}>
                                             <div className="pr-16">
@@ -419,14 +493,22 @@
                                             </div>
                                             <div className="absolute top-4 right-2 flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2 hover:bg-sky-50 rounded-full"><Share2 size={18} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); setConfirmState({ isOpen: true, title: "¿Eliminar?", message: `¿Borrar a ${p.firstName}?`, onConfirm: () => { fb.deleteDoc(fb.doc(fb.db, 'artifacts', fb.appId, 'users', user.uid, 'patients', p.id)); setConfirmState(p => ({ ...p, isOpen: false })); }}); }} className="text-rose-400 p-2 hover:bg-rose-50 rounded-full"><Trash2 size={18} /></button>
+                                                <button onClick={(e) => askConfirmDeletePatient(e, p)} className="text-rose-400 p-2 hover:bg-rose-50 rounded-full"><Trash2 size={18} /></button>
                                             </div>
                                         </Card>
                                     ))}
+                                    {searchTerm && filtered.length === 0 && <p className="text-center py-10 text-slate-400 italic">Sin resultados para la búsqueda.</p>}
                                 </div>
                             </div>
                         ) : (
-                            <PatientForm initialData={currentPatient} onSave={handleSave} onCancel={() => {setView("list"); setCurrentPatient(null);}} options={dynamicRepertoire} setConfirmState={setConfirmState} fb={fb} />
+                            <PatientForm 
+                                initialData={currentPatient} 
+                                onSave={handleSave} 
+                                onCancel={() => {setView("list"); setCurrentPatient(null);}} 
+                                options={dynamicRepertoire} 
+                                setConfirmState={setConfirmState}
+                                fb={fb}
+                            />
                         )}
                     </main>
 
@@ -481,6 +563,22 @@
                 onSave({ ...formData, consultations: consultations.sort((a,b) => b.date - a.date) });
             };
 
+            const handleRequestCancel = () => {
+                if (isDirty || newConsultation.notes || newConsultation.weight) {
+                    setConfirmState({
+                        isOpen: true, title: "¿Salir sin guardar?", message: "Se perderán los cambios realizados.",
+                        onConfirm: () => { setConfirmState(p => ({ ...p, isOpen: false })); onCancel(); }
+                    });
+                } else onCancel();
+            };
+
+            const askDeleteConsultation = (id) => {
+                setConfirmState({
+                    isOpen: true, title: "¿Borrar Consulta?", message: "¿Confirmas la eliminación del registro?",
+                    onConfirm: () => { updateField('consultations', formData.consultations.filter(x => x.id !== id)); setConfirmState(p => ({ ...p, isOpen: false })); }
+                });
+            };
+
             const saveEdit = () => {
                 const [y, m, d] = editData.dateStr.split("-").map(Number);
                 const updated = { ...editData, date: new Date(y, m-1, d, 12).getTime() }; delete updated.dateStr;
@@ -490,10 +588,7 @@
 
             return (
                 <form className="space-y-6 pb-24 animate-fade-in-up" onSubmit={handleSubmit}>
-                    <div className="mb-4"><Button variant="secondary" onClick={() => {
-                        if(isDirty || newConsultation.notes) setConfirmState({ isOpen: true, title: "¿Salir?", message: "Se perderán los cambios.", onConfirm: () => { setConfirmState(p=>({...p, isOpen:false})); onCancel(); } });
-                        else onCancel();
-                    }} className="text-xs py-1 px-4"><ArrowLeft size={16} /> Volver</Button></div>
+                    <div className="mb-4"><Button variant="secondary" onClick={handleRequestCancel} className="text-xs py-1 px-4"><ArrowLeft size={16} /> Volver</Button></div>
 
                     <Card className="border-l-4 border-sky-500 shadow-md">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-[10px] tracking-widest"><User size={16} /> Datos Personales</div>
@@ -520,16 +615,17 @@
                             <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-slate-500 uppercase px-1">Fecha Consulta</label><input type="date" className="w-full p-2 border rounded-lg text-sm bg-white" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} /></div>
                             <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
-                                <input placeholder="Peso" type="number" step="0.01" className="p-2 border rounded-lg text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
-                                <input placeholder="Talla" type="number" step="0.1" className="p-2 border rounded-lg text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
-                                <input placeholder="P.C." type="number" step="0.1" className="p-2 border rounded-lg text-xs" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
+                                <div className="flex flex-col gap-1"><label className="text-[10px] text-center font-bold text-slate-400">P (kg)</label><input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded-lg text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} /></div>
+                                <div className="flex flex-col gap-1"><label className="text-[10px] text-center font-bold text-slate-400">T (cm)</label><input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} /></div>
+                                <div className="flex flex-col gap-1"><label className="text-[10px] text-center font-bold text-slate-400">PC (cm)</label><input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-xs" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} /></div>
                             </div>
                             <textarea placeholder="Evolución clínica..." className="w-full p-3 border rounded-lg text-sm h-28 bg-white resize-none" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
                         </div>
                         <div className="mt-4">
-                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-sky-600 transition-colors">Historial {showHistory ? '▲' : '▼'}</button>
+                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-sky-600 transition-colors">Historial de evolución {showHistory ? '▲' : '▼'}</button>
                             {showHistory && (
                                 <div className="mt-3 space-y-2 max-h-80 overflow-y-auto pr-1">
+                                    {formData.consultations?.length === 0 && <p className="text-center py-4 text-slate-300 italic text-xs">Sin registros previos</p>}
                                     {formData.consultations?.map(c => (
                                         <div key={c.id} className="p-3 border rounded-xl bg-white text-xs shadow-sm border-slate-200">
                                             {editingConsultationId === c.id ? (
@@ -547,10 +643,10 @@
                                             ) : (
                                                 <>
                                                     <div className="flex justify-between font-bold text-sky-600 mb-1">
-                                                        <span>{formatDate(c.date)} ({calculateAgeAtDate(formData.birthDate, c.date)})</span>
+                                                        <span className="flex items-center gap-2">{formatDate(c.date)} <span className="bg-sky-50 text-[10px] px-2 py-0.5 rounded-full border border-sky-100">{calculateAgeAtDate(formData.birthDate, c.date)}</span></span>
                                                         <div className="flex gap-2">
                                                             <button type="button" onClick={() => { setEditingConsultationId(c.id); setEditData({...c, dateStr: new Date(c.date).toISOString().split('T')[0]}); }} className="text-sky-400 hover:text-sky-600"><Edit size={12} /></button>
-                                                            <button type="button" onClick={() => setConfirmState({ isOpen: true, title: "¿Borrar?", message: "¿Seguro?", onConfirm: () => { updateField('consultations', formData.consultations.filter(x => x.id !== c.id)); setConfirmState(p=>({...p, isOpen:false})); }})} className="text-rose-300 hover:text-rose-600"><Trash2 size={12} /></button>
+                                                            <button type="button" onClick={() => askDeleteConsultation(c.id)} className="text-rose-300 hover:text-rose-600"><Trash2 size={12} /></button>
                                                         </div>
                                                     </div>
                                                     <p className="font-bold text-slate-700">{c.motive?.join(', ')}</p>
@@ -569,24 +665,25 @@
                         <div className="flex justify-between items-center mb-4 font-bold text-[10px] uppercase text-sky-800 tracking-widest">
                             <div className="flex gap-2"><FileUp size={16} /> Fotos y Adjuntos</div>
                             <div className="flex gap-2">
-                                <label className="bg-sky-50 text-sky-600 p-2.5 rounded-xl cursor-pointer shadow-sm"><Plus size={18} /><input type="file" className="hidden" accept="image/*" onChange={handleImage} /></label>
-                                <label className="bg-sky-100 text-sky-700 p-2.5 rounded-xl cursor-pointer shadow-sm"><Camera size={18} /><input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleImage} /></label>
+                                <label className="bg-sky-50 text-sky-600 p-2.5 rounded-xl cursor-pointer shadow-sm" title="Galería"><Plus size={18} /><input type="file" className="hidden" accept="image/*" onChange={handleImage} /></label>
+                                <label className="bg-sky-100 text-sky-700 p-2.5 rounded-xl cursor-pointer shadow-sm" title="Cámara"><Camera size={18} /><input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleImage} /></label>
                             </div>
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                             {(formData.images || []).map(img => (
                                 <div key={img.id} className="relative aspect-square rounded-xl border bg-white overflow-hidden group shadow-sm">
                                     <img src={img.src} onClick={() => setExpandedPhoto(img)} className="w-full h-full object-cover cursor-zoom-in" />
-                                    <button type="button" onClick={() => setConfirmState({ isOpen: true, title: "¿Borrar Foto?", message: "¿Quieres quitar esta imagen?", onConfirm: () => { updateField('images', formData.images.filter(i => i.id !== img.id)); setConfirmState(p=>({...p, isOpen:false})); }})} className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 shadow-md"><X size={10} /></button>
+                                    <button type="button" onClick={() => setConfirmState({ isOpen: true, title: "¿Borrar Foto?", message: "¿Quieres quitar esta imagen?", onConfirm: () => { updateField('images', formData.images.filter(i => i.id !== img.id)); setConfirmState(p=>({...p, isOpen:false})); }})} className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1 shadow-md transition-opacity"><X size={10} /></button>
                                 </div>
                             ))}
+                            {(!formData.images || formData.images.length === 0) && <div className="col-span-3 py-6 border-2 border-dashed border-slate-100 rounded-xl text-center text-[10px] text-slate-300 font-bold uppercase tracking-widest">Sin archivos</div>}
                         </div>
                     </Card>
 
                     <Card className="bg-amber-50 border border-amber-100 shadow-sm">
                         <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-[10px] tracking-widest"><AlertCircle size={16} /> Pendientes</div>
                         <div className="flex gap-2">
-                            <input className="flex-1 p-3 border border-amber-200 rounded-xl bg-white text-sm focus:ring-2 ring-amber-100 outline-none" value={newPending} placeholder="Nuevo..." onChange={e=>setNewPending(e.target.value)} />
+                            <input className="flex-1 p-3 border border-amber-200 rounded-xl bg-white text-sm focus:ring-2 ring-amber-100 outline-none" value={newPending} placeholder="Añadir tarea..." onChange={e=>setNewPending(e.target.value)} />
                             <Button variant="primary" className="!bg-amber-500 shadow-amber-200/50" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={20}/></Button>
                         </div>
                         <ul className="mt-3 space-y-2">
@@ -597,10 +694,7 @@
                     </Card>
 
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t flex gap-4 md:static md:bg-transparent md:border-0 z-40">
-                        <Button variant="danger" className="flex-1 py-3 shadow-lg" onClick={() => {
-                            if(isDirty || newConsultation.notes) setConfirmState({ isOpen: true, title: "¿Salir?", message: "Se perderán los cambios.", onConfirm: () => { setConfirmState(p=>({...p, isOpen:false})); onCancel(); } });
-                            else onCancel();
-                        }} disabled={isSavingLocal}>Cancelar</Button>
+                        <Button variant="danger" className="flex-1 py-3 shadow-lg" onClick={handleRequestCancel} disabled={isSavingLocal}>Cancelar</Button>
                         <Button type="submit" className="flex-1 py-3 shadow-lg" disabled={isSavingLocal}>{isSavingLocal ? "Guardando..." : "Guardar Ficha"}</Button>
                     </div>
 
