@@ -103,6 +103,21 @@
             if (months >= 1) return `${months} mes${months !== 1 ? 'es' : ''}${days > 0 ? `, ${days} día${days !== 1 ? 's' : ''}` : ''}`;
             return `${days} día${days !== 1 ? 's' : ''}`;
         }
+        
+        function calculateAgeAtDate(birthDateStr, consultationDateMs) {
+            if (!birthDateStr || !consultationDateMs) return "";
+            const birth = new Date(birthDateStr);
+            const consultation = new Date(consultationDateMs);
+            let years = consultation.getFullYear() - birth.getFullYear();
+            let months = consultation.getMonth() - birth.getMonth();
+            let days = consultation.getDate() - birth.getDate();
+            if (days < 0) { months--; days += new Date(consultation.getFullYear(), consultation.getMonth(), 0).getDate(); }
+            if (months < 0) { years--; months += 12; }
+            if (years >= 1) return `${years} a${years !== 1 ? 's' : ''}, ${months} m`;
+            if (months >= 1) return `${months} m, ${days} d`;
+            return `${days} d`;
+        }
+
         function formatDate(timestamp) {
             if (!timestamp) return 'Sin fecha';
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -389,7 +404,6 @@
             const [newPending, setNewPending] = useState("");
             const [showHistory, setShowHistory] = useState(false);
             const [isSavingLocal, setIsSavingLocal] = useState(false);
-            const [editingConsultationId, setEditingConsultationId] = useState(null);
 
             useEffect(() => { if (initialData) setFormData({ ...initialData }); }, [initialData]);
 
@@ -411,11 +425,26 @@
                     <Card className="border-l-4 border-sky-500">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><User size={18} /> Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                            <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
-                            <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
-                            <input placeholder="DNI" required type="number" className="p-3 border rounded-lg bg-slate-50" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
-                            <input placeholder="Fecha Nac." required type="date" className="p-3 border rounded-lg bg-slate-50" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
-                            <input placeholder="Teléfono" type="tel" className="p-3 border rounded-lg bg-slate-50 col-span-2" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre</label>
+                                <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Apellido</label>
+                                <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">DNI</label>
+                                <input placeholder="DNI" required type="number" className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">F. Nacimiento</label>
+                                <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1 col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Teléfono de contacto</label>
+                                <input placeholder="Teléfono" type="tel" className="p-3 border rounded-lg bg-slate-50 w-full" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
+                            </div>
                         </div>
                     </Card>
 
@@ -430,14 +459,29 @@
                     <Card>
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Stethoscope size={18} /> Consulta Actual</div>
                         <div className="space-y-3 bg-slate-50 p-3 rounded-lg">
-                            <input type="date" className="w-full p-2 border rounded text-sm" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Consulta</label>
+                                <input type="date" className="w-full p-2 border rounded text-sm" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
+                            </div>
                             <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
-                                <input placeholder="Peso" type="number" step="0.01" className="p-2 border rounded text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
-                                <input placeholder="Talla" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
-                                <input placeholder="P.C." type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Peso (kg)</label>
+                                    <input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Talla (cm)</label>
+                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase">P.C. (cm)</label>
+                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded text-xs" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
+                                </div>
                             </div>
-                            <textarea placeholder="Evolución clínica..." className="w-full p-2 border rounded text-sm h-20" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Evolución / Notas</label>
+                                <textarea placeholder="Evolución clínica..." className="w-full p-2 border rounded text-sm h-20" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
+                            </div>
                         </div>
                         
                         <div className="mt-4">
@@ -447,7 +491,7 @@
                                     {formData.consultations?.map(c => (
                                         <div key={c.id} className="p-2 border rounded bg-white text-xs">
                                             <div className="flex justify-between font-bold text-sky-600">
-                                                <span>{formatDate(c.date)}</span>
+                                                <span>{formatDate(c.date)} ({calculateAgeAtDate(formData.birthDate, c.date)})</span>
                                                 <button type="button" onClick={() => updateField('consultations', formData.consultations.filter(x => x.id !== c.id))} className="text-rose-400"><Trash2 size={12} /></button>
                                             </div>
                                             <p className="font-semibold text-slate-700">{c.motive?.join(', ')}</p>
