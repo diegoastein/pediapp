@@ -92,6 +92,7 @@
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
         const FileUp = (props) => <Icon {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></Icon>;
         const Camera = (props) => <Icon {...props}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>;
+        const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -408,6 +409,8 @@
             const [newPending, setNewPending] = useState("");
             const [showHistory, setShowHistory] = useState(false);
             const [isSavingLocal, setIsSavingLocal] = useState(false);
+            const [editingConsultationId, setEditingConsultationId] = useState(null);
+            const [editData, setEditData] = useState(null);
 
             useEffect(() => { if (initialData) setFormData({ ...initialData }); }, [initialData]);
 
@@ -443,6 +446,21 @@
                     consultations.push({ ...newConsultation, date: new Date(y, m - 1, d, 12, 0, 0).getTime(), id: Date.now() });
                 }
                 onSave({ ...formData, consultations: consultations.sort((a,b) => b.date - a.date) });
+            };
+
+            const startEdit = (c) => {
+                setEditingConsultationId(c.id);
+                setEditData({ ...c, dateStr: new Date(c.date).toISOString().split('T')[0] });
+            };
+
+            const saveEdit = () => {
+                const [y, m, d] = editData.dateStr.split("-").map(Number);
+                const updated = { ...editData, date: new Date(y, m - 1, d, 12, 0, 0).getTime() };
+                delete updated.dateStr;
+                const updatedConsultations = formData.consultations.map(c => c.id === editingConsultationId ? updated : c);
+                updateField('consultations', updatedConsultations.sort((a,b) => b.date - a.date));
+                setEditingConsultationId(null);
+                setEditData(null);
             };
 
             return (
@@ -515,12 +533,39 @@
                                 <div className="mt-3 space-y-2">
                                     {formData.consultations?.map(c => (
                                         <div key={c.id} className="p-2 border rounded bg-white text-xs shadow-sm">
-                                            <div className="flex justify-between font-bold text-sky-600">
-                                                <span>{formatDate(c.date)} ({calculateAgeAtDate(formData.birthDate, c.date)})</span>
-                                                <button type="button" onClick={() => updateField('consultations', formData.consultations.filter(x => x.id !== c.id))} className="text-rose-400"><Trash2 size={12} /></button>
-                                            </div>
-                                            <p className="font-semibold text-slate-700">{c.motive?.join(', ')}</p>
-                                            <p className="text-slate-500 italic">{c.notes}</p>
+                                            {editingConsultationId === c.id ? (
+                                                <div className="space-y-2">
+                                                    <input type="date" className="p-1 border rounded w-full" value={editData.dateStr} onChange={e => setEditData({...editData, dateStr: e.target.value})} />
+                                                    <TagInput label="Motivo" options={options.reasons} value={editData.motive} onChange={v => setEditData({...editData, motive: v})} />
+                                                    <div className="flex gap-2">
+                                                        <input placeholder="Peso" className="w-1/3 border p-1" value={editData.weight} onChange={e=>setEditData({...editData, weight: e.target.value})} />
+                                                        <input placeholder="Talla" className="w-1/3 border p-1" value={editData.height} onChange={e=>setEditData({...editData, height: e.target.value})} />
+                                                        <input placeholder="PC" className="w-1/3 border p-1" value={editData.headCircumference} onChange={e=>setEditData({...editData, headCircumference: e.target.value})} />
+                                                    </div>
+                                                    <textarea className="w-full border p-1 h-16" value={editData.notes} onChange={e=>setEditData({...editData, notes: e.target.value})} />
+                                                    <div className="flex gap-2">
+                                                        <Button variant="primary" className="flex-1 py-1" onClick={saveEdit}>Listo</Button>
+                                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>X</Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="flex justify-between font-bold text-sky-600">
+                                                        <span>{formatDate(c.date)} ({calculateAgeAtDate(formData.birthDate, c.date)})</span>
+                                                        <div className="flex gap-2">
+                                                            <button type="button" onClick={() => startEdit(c)} className="text-sky-500"><Edit size={14} /></button>
+                                                            <button type="button" onClick={() => updateField('consultations', formData.consultations.filter(x => x.id !== c.id))} className="text-rose-400"><Trash2 size={14} /></button>
+                                                        </div>
+                                                    </div>
+                                                    <p className="font-semibold text-slate-700 mt-1">{c.motive?.join(', ')}</p>
+                                                    {(c.weight || c.height || c.headCircumference) && (
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">
+                                                            {c.weight && `P: ${c.weight}kg `}{c.height && `| T: ${c.height}cm `}{c.headCircumference && `| PC: ${c.headCircumference}cm`}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-slate-500 italic mt-1 leading-relaxed">{c.notes}</p>
+                                                </>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
