@@ -25,8 +25,6 @@
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
-        
-        /* Estilo para asegurar que la imagen ampliada no se corte */
         .photo-container { isolation: isolate; }
     </style>
 </head>
@@ -66,12 +64,11 @@
             collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
         };
 
-        // --- Registro de Service Worker para Carga Offline ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('PediApp: Service Worker registrado con éxito'))
-                    .catch(err => console.warn('PediApp: Error al registrar Service Worker', err));
+                    .then(reg => console.log('PediApp: Service Worker registrado'))
+                    .catch(err => console.warn('PediApp: SW falló', err));
             });
         }
     </script>
@@ -171,6 +168,13 @@
         }
 
         // --- UI Components ---
+        const LoadingScreen = ({ message = "Iniciando PediApp..." }) => (
+            <div className="h-screen flex flex-col items-center justify-center text-slate-500 gap-4">
+                <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="font-bold text-xl animate-pulse">{message}</p>
+            </div>
+        );
+
         const Card = ({ children, className = "", onClick }) => (
             <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>{children}</div>
         );
@@ -255,6 +259,8 @@
 
         // --- Main App ---
         const App = () => {
+            const firebase = window.firebaseData;
+            
             const [user, setUser] = useState(null);
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -267,12 +273,9 @@
             const [searchTerm, setSearchTerm] = useState("");
             const [isAppLoading, setIsAppLoading] = useState(true);
             const [sharePatientData, setSharePatientData] = useState(null);
-            
-            // Reusable Confirm Modal State
             const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
             const fileInputRef = useRef(null);
-            const { auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } = window.firebaseData;
 
             useEffect(() => {
                 const handleOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -285,22 +288,32 @@
             }, []);
 
             useEffect(() => {
-                if (!auth) return;
-                const unsubscribe = onAuthStateChanged(auth, (currentUser) => { setUser(currentUser); setIsAppLoading(false); });
+                if (!firebase?.auth) return;
+                const unsubscribe = firebase.onAuthStateChanged(firebase.auth, (currentUser) => { 
+                    setUser(currentUser); 
+                    setIsAppLoading(false); 
+                });
                 return () => unsubscribe();
-            }, [auth]);
+            }, [firebase]);
 
             useEffect(() => {
-                if (!user || !db) { setPatients([]); return; }
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                return onSnapshot(colRef, (snapshot) => {
+                if (!user || !firebase?.db) { setPatients([]); return; }
+                const colRef = firebase.collection(firebase.db, 'artifacts', firebase.appId, 'users', user.uid, 'patients');
+                
+                return firebase.onSnapshot(colRef, (snapshot) => {
                     const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     loaded.sort((a, b) => (b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt || 0)) - (a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt || 0)));
                     setPatients(loaded);
+                }, (error) => {
+                    console.error("Error en snapshot:", error);
+                    // Si falla el snapshot, al menos dejamos de cargar
+                    setIsAppLoading(false);
                 });
-            }, [user, db, appId]);
+            }, [user, firebase]);
 
-            const dynamicRepertoire = useMemo(() => {
+            if (!firebase || isAppLoading) return <LoadingScreen />;
+
+            const dynamicRepertoire = patients.length > 0 ? (function() {
                 const neonatal = new Set(["Prematuro", "Sano"]);
                 const pathological = new Set(["Asma", "Alergia"]);
                 const reasons = new Set(["Control", "Fiebre"]);
@@ -310,23 +323,23 @@
                     p.consultations?.forEach(c => c.motive?.forEach(v => reasons.add(v)));
                 });
                 return { neonatal: Array.from(neonatal).sort(), pathological: Array.from(pathological).sort(), reasons: Array.from(reasons).sort() };
-            }, [patients]);
+            })() : { neonatal: [], pathological: [], reasons: [] };
 
             const handleAuth = async (e) => {
                 e.preventDefault(); setAuthError(''); setIsAppLoading(true);
                 try {
-                    if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
-                    else await signInWithEmailAndPassword(auth, email, password);
+                    if (isRegistering) await firebase.createUserWithEmailAndPassword(firebase.auth, email, password);
+                    else await firebase.signInWithEmailAndPassword(firebase.auth, email, password);
                 } catch (err) { setAuthError(err.message); } finally { setIsAppLoading(false); }
             };
 
             const handleSave = async (data) => {
-                if (!user || !db) return;
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                const toSave = { ...data, updatedAt: isOnline ? serverTimestamp() : Date.now() };
+                if (!user || !firebase?.db) return;
+                const colRef = firebase.collection(firebase.db, 'artifacts', firebase.appId, 'users', user.uid, 'patients');
+                const toSave = { ...data, updatedAt: isOnline ? firebase.serverTimestamp() : Date.now() };
                 try {
-                    if (currentPatient?.id) updateDoc(doc(colRef, currentPatient.id), toSave);
-                    else addDoc(colRef, { ...toSave, createdAt: isOnline ? serverTimestamp() : Date.now() });
+                    if (currentPatient?.id) firebase.updateDoc(firebase.doc(colRef, currentPatient.id), toSave);
+                    else firebase.addDoc(colRef, { ...toSave, createdAt: isOnline ? firebase.serverTimestamp() : Date.now() });
                     setView("list"); setCurrentPatient(null);
                 } catch (e) { alert("Error al procesar: " + e.message); }
             };
@@ -336,9 +349,9 @@
                 setConfirmState({
                     isOpen: true,
                     title: "¿Eliminar Paciente?",
-                    message: `¿Estás seguro de que quieres eliminar a ${p.firstName} ${p.lastName}? Esta acción no se puede deshacer.`,
+                    message: `¿Estás seguro de eliminar a ${p.firstName}?`,
                     onConfirm: () => {
-                        deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id));
+                        firebase.deleteDoc(firebase.doc(firebase.db, 'artifacts', firebase.appId, 'users', user.uid, 'patients', p.id));
                         setConfirmState({ ...confirmState, isOpen: false });
                     }
                 });
@@ -347,12 +360,10 @@
             const filtered = patients.filter(p => `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase()));
             const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
 
-            if (isAppLoading && patients.length === 0) return <div className="h-screen flex items-center justify-center text-slate-500 font-bold text-xl animate-pulse">Iniciando PediApp...</div>;
-
             if (!user) {
                 return (
                     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                        <Card className="w-full max-w-md p-8 shadow-xl">
+                        <Card className="w-full max-w-md p-8 shadow-xl animate-fade-in">
                             <div className="flex flex-col items-center gap-3 mb-8">
                                 <div className="bg-sky-100 p-4 rounded-full text-sky-600"><Stethoscope size={40} /></div>
                                 <h1 className="text-2xl font-bold text-slate-800">PediApp</h1>
@@ -378,8 +389,7 @@
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sky-600"><Baby size={28} /><h1 className="text-xl font-bold text-slate-800 tracking-tight">PediApp</h1></div>
                         <div className="flex items-center gap-2">
-                            {view === 'form' && <Button variant="secondary" onClick={() => {}} className="hidden"><ArrowLeft size={16} /> Volver</Button>}
-                            {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2 transition-colors"><LogOut size={20} /></button>}
+                            {view === 'list' && <button onClick={() => firebase.signOut(firebase.auth)} className="text-slate-400 hover:text-rose-500 p-2 transition-colors"><LogOut size={20} /></button>}
                         </div>
                     </header>
 
@@ -387,11 +397,11 @@
                         {view === 'list' ? (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
-                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente por nombre o DNI..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
                                     <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full py-3"><Plus size={20} /> Nuevo Paciente</Button>
                                     <div className="flex gap-2 text-[10px]">
-                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar Historial</Button>
-                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar Datos</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar</Button>
                                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
                                             const file = e.target.files[0]; if(!file) return;
                                             const reader = new FileReader();
@@ -399,7 +409,7 @@
                                                 try {
                                                     const data = JSON.parse(ev.target.result);
                                                     if(data.patients) data.patients.forEach(p => { delete p.id; handleSave(p); });
-                                                } catch(err) { alert("Error al importar el archivo JSON"); }
+                                                } catch(err) { alert("Error al importar"); }
                                             };
                                             reader.readAsText(file);
                                         }} />
@@ -409,24 +419,24 @@
                                 <div className="space-y-3">
                                     <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50">
                                         <div className="flex flex-wrap justify-between items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nro total de paciente = {patients.length}</span>
-                                            {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">Se muestran los ultimos diez pacientes ingresados</span>}
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Total: {patients.length}</span>
+                                            {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase">Últimos 10 registros</span>}
                                         </div>
                                     </div>
 
                                     {listToRender.map(p => (
-                                        <Card key={p.id} className="cursor-pointer relative group hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.98]" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                        <Card key={p.id} className="cursor-pointer relative group hover:border-sky-300 transition-all" onClick={() => { setCurrentPatient(p); setView('form'); }}>
                                             <div className="pr-16">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="font-bold text-slate-800 leading-tight">{p.lastName}, {p.firstName}</h3>
+                                                    <h3 className="font-bold text-slate-800">{p.lastName}, {p.firstName}</h3>
                                                     {p.pendingItems?.length > 0 && <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase"><AlertCircle size={10} /> {p.pendingItems.length} pendientes</span>}
                                                 </div>
                                                 <div className="mt-1 space-y-0.5 text-xs">
-                                                    <p className="text-slate-500"><span className="font-bold text-slate-400">DNI:</span> {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
+                                                    <p className="text-slate-500">DNI: {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
                                                     {p.phone && <p className="text-sky-600 font-medium flex items-center gap-1"><Phone size={10} /> {p.phone}</p>}
                                                 </div>
                                             </div>
-                                            <div className="absolute top-4 right-2 flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                            <div className="absolute top-4 right-2 flex gap-1">
                                                 <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2 hover:bg-sky-50 rounded-full"><Share2 size={18} /></button>
                                                 <button onClick={(e) => askConfirmDeletePatient(e, p)} className="text-rose-400 p-2 hover:bg-rose-50 rounded-full"><Trash2 size={18} /></button>
                                             </div>
@@ -441,13 +451,14 @@
                                 onCancel={() => {setView("list"); setCurrentPatient(null);}} 
                                 options={dynamicRepertoire} 
                                 setConfirmState={setConfirmState}
+                                firebase={firebase}
                             />
                         )}
                     </main>
 
                     {sharePatientData && (
-                        <Modal isOpen={!!sharePatientData} onClose={() => setSharePatientData(null)} title={`Compartir de ${sharePatientData.lastName}`}>
-                            <div className="bg-slate-50 p-3 rounded-lg border text-xs font-mono mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap leading-relaxed">{generatePatientSummary(sharePatientData)}</div>
+                        <Modal isOpen={!!sharePatientData} onClose={() => setSharePatientData(null)} title={`Compartir: ${sharePatientData.lastName}`}>
+                            <div className="bg-slate-50 p-3 rounded-lg border text-xs font-mono mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap">{generatePatientSummary(sharePatientData)}</div>
                             <Button variant="primary" className="w-full py-3" onClick={() => { copyToClipboard(generatePatientSummary(sharePatientData)); setSharePatientData(null); }}>Copiar al Portapapeles</Button>
                         </Modal>
                     )}
@@ -455,7 +466,7 @@
             );
         };
 
-        const PatientForm = ({ initialData, onSave, onCancel, options, setConfirmState }) => {
+        const PatientForm = ({ initialData, onSave, onCancel, options, setConfirmState, firebase }) => {
             const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] });
             const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
             const [newPending, setNewPending] = useState("");
@@ -468,14 +479,10 @@
 
             useEffect(() => { if (initialData) setFormData({ ...initialData }); }, [initialData]);
 
-            const updateField = (field, value) => {
-                setFormData(p => ({ ...p, [field]: value }));
-                setIsDirty(true);
-            };
+            const updateField = (field, value) => { setFormData(p => ({ ...p, [field]: value })); setIsDirty(true); };
 
-            const handleImage = (e, capture = false) => {
-                const file = e.target.files[0];
-                if (!file) return;
+            const handleImage = (e) => {
+                const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     const img = new Image();
@@ -506,165 +513,86 @@
             };
 
             const handleRequestCancel = () => {
-                if (isDirty || newConsultation.notes || newConsultation.weight) {
+                if (isDirty || newConsultation.notes) {
                     setConfirmState({
-                        isOpen: true,
-                        title: "¿Salir sin guardar?",
-                        message: "Has realizado cambios en la ficha. Si sales ahora, se perderán todos los datos no guardados.",
-                        onConfirm: () => {
-                            setConfirmState(p => ({ ...p, isOpen: false }));
-                            onCancel();
-                        }
+                        isOpen: true, title: "¿Salir?", message: "Se perderán los cambios.",
+                        onConfirm: () => { setConfirmState(p => ({ ...p, isOpen: false })); onCancel(); }
                     });
-                } else {
-                    onCancel();
-                }
+                } else onCancel();
             };
 
             const askDeleteConsultation = (id) => {
                 setConfirmState({
-                    isOpen: true,
-                    title: "¿Eliminar Consulta?",
-                    message: "¿Seguro que quieres borrar este registro del historial?",
-                    onConfirm: () => {
-                        updateField('consultations', formData.consultations.filter(x => x.id !== id));
-                        setConfirmState(p => ({ ...p, isOpen: false }));
-                    }
+                    isOpen: true, title: "¿Borrar?", message: "¿Seguro?",
+                    onConfirm: () => { updateField('consultations', formData.consultations.filter(x => x.id !== id)); setConfirmState(p => ({ ...p, isOpen: false })); }
                 });
-            };
-
-            const askDeletePhoto = (id) => {
-                setConfirmState({
-                    isOpen: true,
-                    title: "¿Eliminar Foto?",
-                    message: "¿Quieres borrar este archivo adjunto?",
-                    onConfirm: () => {
-                        updateField('images', formData.images.filter(i => i.id !== id));
-                        setConfirmState(p => ({ ...p, isOpen: false }));
-                    }
-                });
-            };
-
-            const startEdit = (c) => {
-                setEditingConsultationId(c.id);
-                setEditData({ ...c, dateStr: new Date(c.date).toISOString().split('T')[0] });
             };
 
             const saveEdit = () => {
                 const [y, m, d] = editData.dateStr.split("-").map(Number);
                 const updated = { ...editData, date: new Date(y, m - 1, d, 12, 0, 0).getTime() };
                 delete updated.dateStr;
-                const updatedConsultations = formData.consultations.map(c => c.id === editingConsultationId ? updated : c);
-                updateField('consultations', updatedConsultations.sort((a,b) => b.date - a.date));
-                setEditingConsultationId(null); setEditData(null);
+                updateField('consultations', formData.consultations.map(c => c.id === editingConsultationId ? updated : c).sort((a,b) => b.date - a.date));
+                setEditingConsultationId(null);
             };
 
             return (
                 <form className="space-y-6 pb-24 animate-fade-in-up" onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <Button variant="secondary" onClick={handleRequestCancel} className="text-xs py-1"><ArrowLeft size={16} /> Volver a la Lista</Button>
-                    </div>
+                    <div className="mb-4"><Button variant="secondary" onClick={handleRequestCancel} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button></div>
 
-                    <Card className="border-l-4 border-sky-500 shadow-lg">
-                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><User size={18} /> Datos Personales</div>
+                    <Card className="border-l-4 border-sky-500 shadow-md">
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-[10px] tracking-widest"><User size={16} /> Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nombre</label>
-                                <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Apellido</label>
-                                <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">DNI</label>
-                                <input placeholder="DNI" required type="number" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">F. Nacimiento</label>
-                                <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
-                            </div>
-                            <div className="flex flex-col gap-1 col-span-2">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Teléfono de contacto</label>
-                                <input placeholder="Ej: 11 1234 5678" type="tel" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
-                            </div>
+                            <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Nombre</label><input placeholder="Nombre" required className="p-2 border rounded-lg bg-slate-50" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} /></div>
+                            <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Apellido</label><input placeholder="Apellido" required className="p-2 border rounded-lg bg-slate-50" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} /></div>
+                            <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-slate-400 uppercase">DNI</label><input placeholder="DNI" required type="number" className="p-2 border rounded-lg bg-slate-50" value={formData.dni} onChange={e => updateField('dni', e.target.value)} /></div>
+                            <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-slate-400 uppercase">F. Nacimiento</label><input required type="date" className="p-2 border rounded-lg bg-slate-50" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} /></div>
+                            <div className="col-span-2 flex flex-col gap-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Teléfono</label><input placeholder="Teléfono" type="tel" className="p-2 border rounded-lg bg-slate-50" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} /></div>
                         </div>
                     </Card>
 
                     <Card>
-                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Activity size={18} /> Antecedentes</div>
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-[10px] tracking-widest"><Activity size={16} /> Antecedentes</div>
                         <div className="space-y-3">
                             <TagInput label="Neonatales" options={options.neonatal} value={formData.neonatalHistory} onChange={v => updateField('neonatalHistory', v)} />
                             <TagInput label="Patológicos" options={options.pathological} value={formData.pathologicalHistory} onChange={v => updateField('pathologicalHistory', v)} />
                         </div>
                     </Card>
 
-                    <Card className="shadow-md">
-                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Stethoscope size={18} /> Consulta Actual</div>
-                        <div className="space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Fecha de Consulta</label>
-                                <input type="date" className="w-full p-2 border rounded-lg text-sm bg-white" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
-                            </div>
-                            <TagInput label="Motivo de la visita" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
+                    <Card>
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-[10px] tracking-widest"><Stethoscope size={16} /> Consulta Actual</div>
+                        <div className="space-y-3 bg-slate-50 p-3 rounded-lg">
+                            <input type="date" className="w-full p-2 border rounded-lg text-sm" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
+                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Peso (kg)</label>
-                                    <input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Talla (cm)</label>
-                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">P.C. (cm)</label>
-                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
-                                </div>
+                                <input placeholder="Peso (kg)" type="number" step="0.01" className="p-2 border rounded-lg text-xs" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
+                                <input placeholder="Talla (cm)" type="number" step="0.1" className="p-2 border rounded-lg text-xs" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
+                                <input placeholder="P.C. (cm)" type="number" step="0.1" className="p-2 border rounded-lg text-xs" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
                             </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Evolución / Notas clínicas</label>
-                                <textarea placeholder="Redactar evolución..." className="w-full p-3 border rounded-lg text-sm h-28 resize-none bg-white" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
-                            </div>
+                            <textarea placeholder="Evolución clínica..." className="w-full p-2 border rounded-lg text-sm h-24" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
                         </div>
-                        
                         <div className="mt-4">
-                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-sky-600 transition-colors">Historial de consultas {showHistory ? '▲' : '▼'}</button>
+                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Historial {showHistory ? '▲' : '▼'}</button>
                             {showHistory && (
-                                <div className="mt-3 space-y-2 max-h-96 overflow-y-auto pr-1">
-                                    {formData.consultations?.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No hay consultas registradas</p>}
+                                <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
                                     {formData.consultations?.map(c => (
-                                        <div key={c.id} className="p-3 border rounded-xl bg-white text-xs shadow-sm border-slate-200">
+                                        <div key={c.id} className="p-3 border rounded-xl bg-white text-xs shadow-sm">
                                             {editingConsultationId === c.id ? (
-                                                <div className="space-y-3 animate-fade-in">
-                                                    <input type="date" className="p-2 border rounded-lg w-full" value={editData.dateStr} onChange={e => setEditData({...editData, dateStr: e.target.value})} />
-                                                    <TagInput label="Motivo" options={options.reasons} value={editData.motive} onChange={v => setEditData({...editData, motive: v})} />
-                                                    <div className="flex gap-2">
-                                                        <input placeholder="Peso" className="w-1/3 border p-2 rounded-lg text-center" value={editData.weight} onChange={e=>setEditData({...editData, weight: e.target.value})} />
-                                                        <input placeholder="Talla" className="w-1/3 border p-2 rounded-lg text-center" value={editData.height} onChange={e=>setEditData({...editData, height: e.target.value})} />
-                                                        <input placeholder="PC" className="w-1/3 border p-2 rounded-lg text-center" value={editData.headCircumference} onChange={e=>setEditData({...editData, headCircumference: e.target.value})} />
-                                                    </div>
-                                                    <textarea className="w-full border p-2 rounded-lg h-20" value={editData.notes} onChange={e=>setEditData({...editData, notes: e.target.value})} />
-                                                    <div className="flex gap-2">
-                                                        <Button variant="primary" className="flex-1 py-1" onClick={saveEdit}>Listo</Button>
-                                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>Cerrar</Button>
-                                                    </div>
+                                                <div className="space-y-2">
+                                                    <input type="date" className="p-1 border rounded w-full" value={editData.dateStr} onChange={e => setEditData({...editData, dateStr: e.target.value})} />
+                                                    <div className="flex gap-1"><Button variant="primary" className="flex-1 py-1" onClick={saveEdit}>OK</Button><Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>X</Button></div>
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <div className="flex justify-between font-bold text-sky-600 mb-2">
-                                                        <span className="flex items-center gap-2">{formatDate(c.date)} <span className="bg-sky-50 text-[10px] px-2 py-0.5 rounded-full border border-sky-100">{calculateAgeAtDate(formData.birthDate, c.date)}</span></span>
+                                                    <div className="flex justify-between font-bold text-sky-600 mb-1">
+                                                        <span>{formatDate(c.date)} ({calculateAgeAtDate(formData.birthDate, c.date)})</span>
                                                         <div className="flex gap-2">
-                                                            <button type="button" onClick={() => startEdit(c)} className="text-sky-500 hover:bg-sky-50 p-1.5 rounded-full"><Edit size={14} /></button>
-                                                            <button type="button" onClick={() => askDeleteConsultation(c.id)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-full"><Trash2 size={14} /></button>
+                                                            <button type="button" onClick={() => { setEditingConsultationId(c.id); setEditData({...c, dateStr: new Date(c.date).toISOString().split('T')[0]}); }} className="text-sky-500"><Edit size={12} /></button>
+                                                            <button type="button" onClick={() => askDeleteConsultation(c.id)} className="text-rose-400"><Trash2 size={12} /></button>
                                                         </div>
                                                     </div>
-                                                    <p className="font-semibold text-slate-800 mb-1">{c.motive?.join(', ') || 'Sin motivo especificado'}</p>
-                                                    {(c.weight || c.height || c.headCircumference) && (
-                                                        <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-2">
-                                                            {c.weight && `P: ${c.weight}kg `}{c.height && `| T: ${c.height}cm `}{c.headCircumference && `| PC: ${c.headCircumference}cm`}
-                                                        </p>
-                                                    )}
-                                                    <p className="text-slate-600 italic whitespace-pre-wrap leading-relaxed bg-slate-50 p-2 rounded-lg">{c.notes || 'Sin notas de evolución'}</p>
+                                                    <p className="font-semibold text-slate-700">{c.motive?.join(', ')}</p>
+                                                    <p className="text-slate-500 italic mt-1 leading-relaxed">{c.notes}</p>
                                                 </>
                                             )}
                                         </div>
@@ -674,80 +602,47 @@
                         </div>
                     </Card>
 
-                    <Card className="photo-container shadow-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex gap-2 text-sky-800 font-bold uppercase text-xs tracking-wider"><FileUp size={18} /> Adjuntos / Fotos</div>
+                    <Card className="photo-container">
+                        <div className="flex justify-between items-center mb-4 font-bold text-[10px] uppercase text-sky-800 tracking-widest">
+                            <div className="flex gap-2"><FileUp size={16} /> Fotos</div>
                             <div className="flex gap-2">
-                                <label className="bg-sky-50 text-sky-600 p-2.5 rounded-xl cursor-pointer hover:bg-sky-100 transition-all shadow-sm" title="Galería">
-                                    <Plus size={20} />
-                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImage(e)} />
-                                </label>
-                                <label className="bg-sky-100 text-sky-700 p-2.5 rounded-xl cursor-pointer hover:bg-sky-200 transition-all shadow-sm" title="Tomar Foto">
-                                    <Camera size={20} />
-                                    <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => handleImage(e)} />
-                                </label>
+                                <label className="bg-sky-50 text-sky-600 p-2 rounded-lg cursor-pointer"><Plus size={18} /><input type="file" className="hidden" accept="image/*" onChange={handleImage} /></label>
+                                <label className="bg-sky-100 text-sky-700 p-2 rounded-lg cursor-pointer"><Camera size={18} /><input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleImage} /></label>
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2">
                             {(formData.images || []).map(img => (
-                                <div key={img.id} className="relative aspect-square rounded-xl border-2 border-slate-100 group bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                    <img 
-                                        src={img.src} 
-                                        onClick={() => setExpandedPhoto(img)}
-                                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                                    />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => askDeletePhoto(img.id)} 
-                                        className="absolute top-1 right-1 bg-rose-500/90 text-white rounded-full p-1 shadow-lg z-10 backdrop-blur-sm"
-                                    >
-                                        <X size={12} />
-                                    </button>
+                                <div key={img.id} className="relative aspect-square rounded-lg border bg-white overflow-hidden">
+                                    <img src={img.src} onClick={() => setExpandedPhoto(img)} className="w-full h-full object-cover cursor-pointer" />
+                                    <button type="button" onClick={() => updateField('images', formData.images.filter(i => i.id !== img.id))} className="absolute top-1 right-1 bg-rose-500 text-white rounded-full p-1"><X size={8} /></button>
                                 </div>
                             ))}
-                            {(formData.images?.length === 0) && (
-                                <div className="col-span-3 py-6 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs font-bold uppercase tracking-widest">
-                                    Sin archivos cargados
-                                </div>
-                            )}
                         </div>
                     </Card>
 
-                    <Card className="bg-amber-50 border-amber-200 shadow-sm">
-                        <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs tracking-wider"><AlertCircle size={18} /> Pendientes de seguimiento</div>
+                    <Card className="bg-amber-50">
+                        <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-[10px] tracking-widest"><AlertCircle size={16} /> Pendientes</div>
                         <div className="flex gap-2">
-                            <input className="flex-1 p-2.5 border border-amber-200 rounded-xl bg-white text-sm focus:ring-2 ring-amber-100 outline-none" value={newPending} placeholder="Ej: Traer carnet de vacunas..." onChange={e=>setNewPending(e.target.value)} />
-                            <Button variant="primary" className="!bg-amber-500 hover:!bg-amber-600 shadow-amber-500/20" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={20}/></Button>
+                            <input className="flex-1 p-2 border border-amber-200 rounded-lg text-sm" value={newPending} placeholder="Nuevo..." onChange={e=>setNewPending(e.target.value)} />
+                            <Button variant="primary" className="!bg-amber-500" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={18}/></Button>
                         </div>
-                        <ul className="mt-3 space-y-2">
+                        <ul className="mt-3 space-y-1">
                             {(formData.pendingItems || []).map(i => (
-                                <li key={i.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-amber-100 text-sm shadow-sm animate-fade-in">
-                                    <span className="text-slate-700">{i.text}</span>
-                                    <button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500 hover:bg-emerald-50 p-1 rounded-full"><CheckCircle size={20}/></button>
+                                <li key={i.id} className="flex justify-between items-center p-2 bg-white rounded-lg border text-xs">
+                                    {i.text}<button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500"><CheckCircle size={18}/></button>
                                 </li>
                             ))}
                         </ul>
                     </Card>
 
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex gap-4 md:static md:bg-transparent md:p-0 md:border-0 z-40">
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t flex gap-4 md:static md:bg-transparent md:border-0 z-40">
                         <Button variant="danger" className="flex-1 py-3" onClick={handleRequestCancel} disabled={isSavingLocal}>Cancelar</Button>
-                        <Button type="submit" className="flex-1 py-3" disabled={isSavingLocal}>{isSavingLocal ? "Procesando..." : "Guardar Ficha"}</Button>
+                        <Button type="submit" className="flex-1 py-3" disabled={isSavingLocal}>{isSavingLocal ? "Guardando..." : "Guardar"}</Button>
                     </div>
 
-                    {/* Lightbox para fotos */}
                     {expandedPhoto && (
-                        <div className="fixed inset-0 bg-black/95 z-[300] flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setExpandedPhoto(null)}>
-                            <button className="absolute top-6 right-6 text-white bg-white/20 p-3 rounded-full hover:bg-white/40 transition-colors">
-                                <X size={32} />
-                            </button>
-                            <img 
-                                src={expandedPhoto.src} 
-                                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-fade-in-up" 
-                                onClick={(e) => e.stopPropagation()}
-                            />
-                            <div className="mt-6 text-white font-bold tracking-widest text-sm bg-white/10 px-6 py-2 rounded-full backdrop-blur-md border border-white/20">
-                                {expandedPhoto.date}
-                            </div>
+                        <div className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 animate-fade-in" onClick={() => setExpandedPhoto(null)}>
+                            <img src={expandedPhoto.src} className="max-w-full max-h-full object-contain rounded shadow-2xl" onClick={e => e.stopPropagation()} />
                         </div>
                     )}
                 </form>
