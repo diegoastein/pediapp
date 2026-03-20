@@ -91,6 +91,7 @@
         const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
         const FileUp = (props) => <Icon {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></Icon>;
+        const Camera = (props) => <Icon {...props}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -530,10 +531,16 @@
                     <Card className="photo-container">
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex gap-2 text-sky-800 font-bold uppercase text-xs tracking-wider"><FileUp size={18} /> Adjuntos / Fotos</div>
-                            <label className="bg-sky-50 text-sky-600 p-2 rounded-lg cursor-pointer hover:bg-sky-100 transition-colors">
-                                <Plus size={18} />
-                                <input type="file" className="hidden" accept="image/*" onChange={handleImage} />
-                            </label>
+                            <div className="flex gap-2">
+                                <label className="bg-sky-50 text-sky-600 p-2 rounded-lg cursor-pointer hover:bg-sky-100 transition-colors" title="Galería">
+                                    <Plus size={18} />
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleImage} />
+                                </label>
+                                <label className="bg-sky-100 text-sky-700 p-2 rounded-lg cursor-pointer hover:bg-sky-200 transition-colors" title="Tomar Foto">
+                                    <Camera size={18} />
+                                    <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleImage} />
+                                </label>
+                            </div>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                             {(formData.images || []).map(img => (
