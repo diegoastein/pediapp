@@ -1,104 +1,126 @@
-const CACHE_NAME = "pediapp-v4";
+// sw.js — PediApp Service Worker
+// Ubicación esperada: https://usuario.github.io/pediapp/sw.js
+// El scope se define automáticamente como /pediapp/ por estar en esa carpeta
 
-// Solo cacheamos lo que realmente controla el HTML
-const ASSETS_TO_CACHE = [
-  "./index.html",
-  "./manifest.json"
+const CACHE_NAME = "pediapp-v5";
+const BASE = "/pediapp";
+
+// Shell de la app — rutas absolutas obligatorias para GitHub Pages
+const APP_SHELL = [
+  `${BASE}/`,
+  `${BASE}/index.html`,
+  `${BASE}/manifest.json`,
 ];
 
-// URLs de CDN que vamos a cachear dinámicamente
-const CDN_PATTERNS = [
+// Hosts de CDN — cacheamos dinámicamente (Cache First)
+const CDN_HOSTS = [
   "cdn.tailwindcss.com",
-  "unpkg.com/react@18",
-  "unpkg.com/react-dom@18",
-  "unpkg.com/@babel/standalone",
+  "unpkg.com",
   "fonts.googleapis.com",
-  "fonts.gstatic.com"
+  "fonts.gstatic.com",
 ];
 
-// Firebase NO se cachea con el SW porque usa IndexedDB y su propio sistema offline
-const SKIP_PATTERNS = [
+// Hosts de Firebase — NO interceptamos, tienen su propio sistema offline con IndexedDB
+const BYPASS_HOSTS = [
   "firebaseapp.com",
-  "googleapis.com/identitytoolkit",
-  "securetoken.googleapis.com",
-  "firestore.googleapis.com"
+  "firebase.google.com",
+  "googleapis.com",
+  "gstatic.com",
+  "securetoken.google.com",
+  "identitytoolkit",
+  "firestore.googleapis.com",
 ];
 
+// ── INSTALL: pre-cachear el shell ─────────────────────────────────────────────
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+      .then((cache) =>
+        Promise.allSettled(
+          APP_SHELL.map((url) =>
+            cache.add(url).catch((e) => console.warn("[SW] No se pudo pre-cachear:", url, e))
+          )
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });
 
+// ── ACTIVATE: eliminar caches viejos y tomar control inmediato ────────────────
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k !== CACHE_NAME)
+            .map((k) => caches.delete(k))
+        )
+      )
+      .then(() => self.clients.claim())
   );
 });
 
+// ── FETCH ─────────────────────────────────────────────────────────────────────
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  // Solo GET
   if (event.request.method !== "GET") return;
 
-  const url = event.request.url;
-
-  // Ignorar requests de Firebase Auth/Firestore (tienen su propia persistencia)
-  if (SKIP_PATTERNS.some(p => url.includes(p))) return;
-
-  // Estrategia: Cache First para recursos estáticos y CDN
-  if (
-    url.includes("index.html") ||
-    url.includes("manifest.json") ||
-    url.includes("sw.js") ||
-    CDN_PATTERNS.some(p => url.includes(p))
-  ) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(event.request);
-        if (cached) return cached;
-
-        try {
-          const response = await fetch(event.request);
-          if (response && response.status === 200) {
-            cache.put(event.request, response.clone());
-          }
-          return response;
-        } catch (err) {
-          // Si es una navegación y no hay cache, devolvemos el index
-          if (event.request.mode === "navigate") {
-            return cache.match("./index.html");
-          }
-          throw err;
-        }
-      })
-    );
+  // Bypassear Firebase — no tocar nada de Firebase con el SW
+  if (BYPASS_HOSTS.some((h) => url.hostname.includes(h) || url.href.includes(h))) {
     return;
   }
 
-  // Para todo lo demás: Network first, fallback a cache
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request).then((cached) => {
-          if (cached) return cached;
-          if (event.request.mode === "navigate") {
-            return caches.match("./index.html");
-          }
-        });
-      })
-  );
+  // CDN externos — Cache First con actualización en background
+  if (CDN_HOSTS.some((h) => url.hostname.includes(h))) {
+    event.respondWith(cacheFirst(event.request));
+    return;
+  }
+
+  // Recursos propios bajo /pediapp/ — Cache First con fallback al index
+  if (url.pathname.startsWith(BASE) || url.pathname === BASE) {
+    event.respondWith(cacheFirstWithFallback(event.request));
+    return;
+  }
 });
+
+// Cache First: devuelve cache si existe, sino busca en red y guarda
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(request);
+    if (response && (response.status === 200 || response.type === "opaque")) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (err) {
+    throw err;
+  }
+}
+
+// Cache First con fallback al index.html para navegación
+async function cacheFirstWithFallback(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(request);
+    if (response && (response.status === 200 || response.type === "opaque")) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (err) {
+    // Sin red — devolver el index cacheado (SPA fallback)
+    const fallback =
+      (await cache.match(`${BASE}/`)) ||
+      (await cache.match(`${BASE}/index.html`));
+    if (fallback) return fallback;
+    throw err;
+  }
+}

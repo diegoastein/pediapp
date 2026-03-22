@@ -43,7 +43,7 @@
         if ('serviceWorker' in navigator) {
             // Esperamos a que la página cargue para no bloquear el render inicial
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js', { scope: './' })
+                navigator.serviceWorker.register('/pediapp/sw.js', { scope: '/pediapp/' })
                     .then((reg) => {
                         console.log('[PediApp] Service Worker registrado. Scope:', reg.scope);
 
@@ -386,16 +386,27 @@
                 }
             };
 
-            const handleSave = async (data) => {
-                const { db, appId, collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } = window.firebaseData;
+            const handleSave = (data) => {
+                const { db, appId, collection, addDoc, updateDoc, doc, serverTimestamp } = window.firebaseData;
                 if (!user || !db) return;
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                const toSave = { ...data, updatedAt: isOnline ? serverTimestamp() : Date.now() };
+                // CRÍTICO: no usar await ni condicional con isOnline.
+                // Firestore con persistentLocalCache encola la escritura internamente
+                // y la sincroniza cuando vuelve la red. Usar await bloquea si no hay red.
+                // serverTimestamp() también funciona offline — Firestore lo resuelve al sincronizar.
+                const toSave = { ...data, updatedAt: serverTimestamp() };
                 try {
-                    if (currentPatient?.id) await updateDoc(doc(colRef, currentPatient.id), toSave);
-                    else await addDoc(colRef, { ...toSave, createdAt: isOnline ? serverTimestamp() : Date.now() });
-                    setView("list"); setCurrentPatient(null);
-                } catch (e) { alert("Error al procesar: " + e.message); }
+                    if (currentPatient?.id) {
+                        updateDoc(doc(colRef, currentPatient.id), toSave);
+                    } else {
+                        addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
+                    }
+                    // Navegar inmediatamente — no esperar confirmación del servidor
+                    setView("list");
+                    setCurrentPatient(null);
+                } catch (e) {
+                    alert("Error al procesar: " + e.message);
+                }
             };
 
             const askConfirmDeletePatient = (e, p) => {
