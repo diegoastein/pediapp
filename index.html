@@ -519,6 +519,13 @@
                                     </div>
                                 </div>
 
+                                <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50">
+                                    <div className="flex flex-wrap justify-between items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nro total de pacientes = {patients.length}</span>
+                                        {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">Se muestran los ultimos diez pacientes ingresados</span>}
+                                    </div>
+                                </div>
+
                                 {/* Contenedor de Cuadrícula de Tarjetas (Grid View) */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {listToRender.map(p => (
