@@ -37,24 +37,24 @@
     <!--
         REGISTRO DEL SERVICE WORKER
         Debe hacerse ANTES de que Firebase se inicialice y lo antes posible.
-        Usamos un script clásico (no module) para máxima compatibilidad.
     -->
     <script>
         if ('serviceWorker' in navigator) {
-            // Esperamos a que la página cargue para no bloquear el render inicial
             window.addEventListener('load', () => {
+                if (!window.location.protocol.startsWith('http')) {
+                    console.warn('[PediApp] Registro de Service Worker omitido: Protocolo no compatible en este entorno.');
+                    return;
+                }
+
                 navigator.serviceWorker.register('/pediapp/sw.js', { scope: '/pediapp/' })
                     .then((reg) => {
                         console.log('[PediApp] Service Worker registrado. Scope:', reg.scope);
-
-                        // Si hay una nueva versión esperando, la activamos inmediatamente
                         reg.addEventListener('updatefound', () => {
                             const newWorker = reg.installing;
                             if (newWorker) {
                                 newWorker.addEventListener('statechange', () => {
                                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                                         console.log('[PediApp] Nueva versión disponible.');
-                                        // Opcional: podrías mostrar un banner al usuario aquí
                                     }
                                 });
                             }
@@ -64,12 +64,10 @@
                         console.error('[PediApp] Error al registrar Service Worker:', err);
                     });
 
-                // Forzar recarga si el SW tomó control (para que use recursos cacheados)
                 let refreshing = false;
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
                     if (!refreshing) {
                         refreshing = true;
-                        // Solo recargamos si la página ya estaba cargada (no en la primera carga)
                     }
                 });
             });
@@ -79,7 +77,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
@@ -96,9 +94,7 @@
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
-            // browserLocalPersistence es clave: mantiene la sesión guardada localmente
             await setPersistence(auth, browserLocalPersistence);
-            // persistentLocalCache es clave: guarda los datos de Firestore en IndexedDB
             db = initializeFirestore(app, {
                 localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
             });
@@ -108,10 +104,9 @@
 
         window.firebaseData = { 
             auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
+            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc, serverTimestamp 
         };
 
-        // Disparamos un evento custom para que React sepa que Firebase está listo
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
@@ -136,13 +131,11 @@
         const Phone = (props) => <Icon {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></Icon>;
         const WifiOff = (props) => <Icon {...props}><line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.929a10 10 0 0 1 5.17-2.69"/><path d="M18.83 10.24a10 10 0 0 1 1.17.69"/><path d="M2 9.429c.355-.333.729-.646 1.12-.94"/><path d="M17.47 4.96c.78.36 1.53.8 2.22 1.3"/></Icon>;
         const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
-        const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
         const FileUp = (props) => <Icon {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></Icon>;
         const Camera = (props) => <Icon {...props}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>;
         const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
-        const Maximize = (props) => <Icon {...props}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></Icon>;
-        const Wifi = (props) => <Icon {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></Icon>;
+        const Settings = (props) => <Icon {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -195,6 +188,8 @@
         function generatePatientSummary(patient) {
             const age = calculateAge(patient.birthDate);
             let summary = `--- Historia Clínica: ${patient.lastName}, ${patient.firstName} ---\nDNI: ${patient.dni}\n`;
+            if (patient.healthInsurance) summary += `Obra Social: ${patient.healthInsurance}${patient.plan ? ` (${patient.plan})` : ''}\n`;
+            if (patient.memberNumber) summary += `Afiliado: ${patient.memberNumber}\n`;
             if (patient.phone) summary += `Tel: ${patient.phone}\n`;
             summary += `F. Nac: ${patient.birthDate} (${age})\n\n`;
             summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
@@ -309,12 +304,12 @@
             const [searchTerm, setSearchTerm] = useState("");
             const [isAppLoading, setIsAppLoading] = useState(true);
             const [sharePatientData, setSharePatientData] = useState(null);
+            const [config, setConfig] = useState({ healthInsurances: [], plans: [] });
             
             const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
             const fileInputRef = useRef(null);
 
-            // Esperar a que Firebase esté listo (puede llegar tarde si el módulo carga lento)
             useEffect(() => {
                 if (window.firebaseData?.auth) {
                     setFirebaseReady(true);
@@ -347,32 +342,50 @@
             }, [firebaseReady]);
 
             useEffect(() => {
-                if (!user) { setPatients([]); return; }
-                const { db, appId, collection, onSnapshot } = window.firebaseData;
+                if (!user || !firebaseReady) return;
+                const { db, appId, collection, onSnapshot, doc } = window.firebaseData;
                 if (!db) return;
+
+                // Listener pacientes
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                return onSnapshot(colRef, (snapshot) => {
+                const unsubPatients = onSnapshot(colRef, (snapshot) => {
                     const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     loaded.sort((a, b) => (b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt || 0)) - (a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt || 0)));
                     setPatients(loaded);
-                }, (error) => {
-                    // En modo offline con cache, esto puede fallar en la red pero Firestore
-                    // entrega datos locales igualmente — no es un error real
-                    console.warn('[PediApp] Firestore snapshot error (probablemente offline):', error.code);
-                });
+                }, (error) => console.warn('[PediApp] Error pacientes:', error.code));
+
+                // Listener configuración
+                const configRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'lists');
+                const unsubConfig = onSnapshot(configRef, (docSnap) => {
+                    if (docSnap.exists()) setConfig(docSnap.data());
+                }, (err) => console.warn('[PediApp] Error config:', err));
+
+                return () => { unsubPatients(); unsubConfig(); };
             }, [user, firebaseReady]);
 
             const dynamicRepertoire = useMemo(() => {
                 const neonatal = new Set(["Prematuro", "Sano"]);
                 const pathological = new Set(["Asma", "Alergia"]);
                 const reasons = new Set(["Control", "Fiebre"]);
+                const healthInsurances = new Set(config.healthInsurances || []);
+                const plans = new Set(config.plans || []);
+                
                 patients.forEach(p => {
                     p.neonatalHistory?.forEach(v => neonatal.add(v));
                     p.pathologicalHistory?.forEach(v => pathological.add(v));
                     p.consultations?.forEach(c => c.motive?.forEach(v => reasons.add(v)));
+                    if (p.healthInsurance) healthInsurances.add(p.healthInsurance);
+                    if (p.plan) plans.add(p.plan);
                 });
-                return { neonatal: Array.from(neonatal).sort(), pathological: Array.from(pathological).sort(), reasons: Array.from(reasons).sort() };
-            }, [patients]);
+                
+                return { 
+                    neonatal: Array.from(neonatal).sort(), 
+                    pathological: Array.from(pathological).sort(), 
+                    reasons: Array.from(reasons).sort(),
+                    healthInsurances: Array.from(healthInsurances).sort(),
+                    plans: Array.from(plans).sort()
+                };
+            }, [patients, config]);
 
             const handleAuth = async (e) => {
                 e.preventDefault(); setAuthError(''); setIsAppLoading(true);
@@ -390,10 +403,6 @@
                 const { db, appId, collection, addDoc, updateDoc, doc, serverTimestamp } = window.firebaseData;
                 if (!user || !db) return;
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                // CRÍTICO: no usar await ni condicional con isOnline.
-                // Firestore con persistentLocalCache encola la escritura internamente
-                // y la sincroniza cuando vuelve la red. Usar await bloquea si no hay red.
-                // serverTimestamp() también funciona offline — Firestore lo resuelve al sincronizar.
                 const toSave = { ...data, updatedAt: serverTimestamp() };
                 try {
                     if (currentPatient?.id) {
@@ -401,12 +410,16 @@
                     } else {
                         addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
                     }
-                    // Navegar inmediatamente — no esperar confirmación del servidor
                     setView("list");
                     setCurrentPatient(null);
-                } catch (e) {
-                    alert("Error al procesar: " + e.message);
-                }
+                } catch (e) { alert("Error al procesar: " + e.message); }
+            };
+
+            const handleSaveConfig = (newConfig) => {
+                const { db, appId, doc, setDoc } = window.firebaseData;
+                if (!user || !db) return;
+                const configRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'lists');
+                setDoc(configRef, newConfig);
             };
 
             const askConfirmDeletePatient = (e, p) => {
@@ -426,7 +439,6 @@
             const filtered = patients.filter(p => `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase()));
             const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
 
-            // Pantalla de carga inicial
             if (!firebaseReady || (isAppLoading && patients.length === 0 && !user)) {
                 return (
                     <div className="h-screen flex flex-col items-center justify-center text-slate-500 gap-4">
@@ -448,11 +460,6 @@
                             <div className="flex flex-col items-center gap-3 mb-8">
                                 <div className="bg-sky-100 p-4 rounded-full text-sky-600"><Stethoscope size={40} /></div>
                                 <h1 className="text-2xl font-bold text-slate-800">PediApp</h1>
-                                {!isOnline && (
-                                    <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full text-xs font-bold border border-amber-200">
-                                        <WifiOff size={12} /> Sin conexión — necesitás internet para iniciar sesión por primera vez
-                                    </div>
-                                )}
                             </div>
                             <form className="space-y-4" onSubmit={handleAuth}>
                                 <div><label className="block text-sm font-bold text-slate-700">Email</label><input type="email" required className="w-full p-3 border rounded-lg" value={email} onChange={e => setEmail(e.target.value)} /></div>
@@ -472,7 +479,6 @@
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl relative overflow-hidden">
                     <ConfirmModal {...confirmState} onCancel={() => setConfirmState(prev => ({...prev, isOpen: false}))} />
                     
-                    {/* Banner de estado de conexión */}
                     {!isOnline && (
                         <div className="bg-amber-500 text-white text-[10px] text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2">
                             <WifiOff size={12} /> MODO OFFLINE — Los cambios se sincronizarán al reconectar
@@ -481,20 +487,17 @@
                     
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sky-600">
-                            <Baby size={28} />
-                            <h1 className="text-xl font-bold text-slate-800 tracking-tight">PediApp</h1>
-                            {isOnline 
-                                ? <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Online"></span>
-                                : <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" title="Offline"></span>
-                            }
+                            <Baby size={28} onClick={() => setView('list')} className="cursor-pointer" />
+                            <h1 className="text-xl font-bold text-slate-800 tracking-tight cursor-pointer" onClick={() => setView('list')}>PediApp</h1>
                         </div>
                         <div className="flex items-center gap-2">
+                            {view !== 'settings' && <button onClick={() => setView('settings')} className="text-slate-400 hover:text-sky-500 p-2 transition-colors"><Settings size={20} /></button>}
                             {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2 transition-colors"><LogOut size={20} /></button>}
                         </div>
                     </header>
 
                     <main className="p-4">
-                        {view === 'list' ? (
+                        {view === 'list' && (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
                                     <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente por nombre o DNI..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
@@ -517,23 +520,15 @@
                                 </div>
 
                                 <div className="space-y-3">
-                                    <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50">
-                                        <div className="flex flex-wrap justify-between items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nro total de paciente = {patients.length}</span>
-                                            {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">Se muestran los ultimos diez pacientes ingresados</span>}
-                                        </div>
-                                    </div>
-
                                     {listToRender.map(p => (
-                                        <Card key={p.id} className="cursor-pointer relative group hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.98]" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                        <Card key={p.id} className="cursor-pointer relative group hover:border-sky-300 transition-all active:scale-[0.98]" onClick={() => { setCurrentPatient(p); setView('form'); }}>
                                             <div className="pr-16">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <h3 className="font-bold text-slate-800 leading-tight">{p.lastName}, {p.firstName}</h3>
-                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase"><AlertCircle size={10} /> {p.pendingItems.length} pendientes</span>}
                                                 </div>
-                                                <div className="mt-1 space-y-0.5 text-xs">
-                                                    <p className="text-slate-500"><span className="font-bold text-slate-400">DNI:</span> {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
-                                                    {p.phone && <p className="text-sky-600 font-medium flex items-center gap-1"><Phone size={10} /> {p.phone}</p>}
+                                                <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                                                    <p><span className="font-bold">DNI:</span> {p.dni} • {calculateAge(p.birthDate)}</p>
+                                                    {(p.healthInsurance || p.plan) && <p><span className="font-bold text-sky-600">OS:</span> {p.healthInsurance || 'N/A'} {p.plan ? `(${p.plan})` : ''}</p>}
                                                 </div>
                                             </div>
                                             <div className="absolute top-4 right-2 flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
@@ -544,13 +539,23 @@
                                     ))}
                                 </div>
                             </div>
-                        ) : (
+                        )}
+
+                        {view === 'form' && (
                             <PatientForm 
                                 initialData={currentPatient} 
                                 onSave={handleSave} 
                                 onCancel={() => {setView("list"); setCurrentPatient(null);}} 
                                 options={dynamicRepertoire} 
                                 setConfirmState={setConfirmState}
+                            />
+                        )}
+
+                        {view === 'settings' && (
+                            <SettingsView 
+                                config={config} 
+                                onSave={handleSaveConfig} 
+                                onBack={() => setView('list')} 
                             />
                         )}
                     </main>
@@ -565,8 +570,110 @@
             );
         };
 
+        const SettingsView = ({ config, onSave, onBack }) => {
+            const [localConfig, setLocalConfig] = useState(config);
+
+            const handleUpdateList = (type, newList) => {
+                const updated = { ...localConfig, [type]: newList.sort() };
+                setLocalConfig(updated);
+                onSave(updated);
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in-up">
+                    <div className="mb-4">
+                        <Button variant="secondary" onClick={onBack} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>
+                    </div>
+
+                    <Card className="border-l-4 border-sky-500 shadow-lg">
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Settings size={18} /> Configuración de Listas</div>
+                        <p className="text-xs text-slate-500 mb-6 italic">Agrega o elimina opciones para que aparezcan en los menús desplegables al crear fichas.</p>
+                        
+                        <div className="space-y-8">
+                            <ListManager 
+                                title="Obras Sociales / Prepagas" 
+                                items={localConfig.healthInsurances || []} 
+                                onUpdate={(list) => handleUpdateList('healthInsurances', list)} 
+                            />
+                            <div className="h-px bg-slate-100" />
+                            <ListManager 
+                                title="Planes" 
+                                items={localConfig.plans || []} 
+                                onUpdate={(list) => handleUpdateList('plans', list)} 
+                            />
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+
+        const ListManager = ({ title, items, onUpdate }) => {
+            const [newVal, setNewVal] = useState("");
+            const [editingIndex, setEditingIndex] = useState(null);
+            const [editVal, setEditVal] = useState("");
+
+            const handleAdd = () => {
+                if (newVal.trim() && !items.includes(newVal.trim())) {
+                    onUpdate([...items, newVal.trim()]);
+                    setNewVal("");
+                }
+            };
+
+            const handleDelete = (val) => {
+                onUpdate(items.filter(i => i !== val));
+            };
+
+            const startEdit = (idx, val) => {
+                setEditingIndex(idx);
+                setEditVal(val);
+            };
+
+            const saveEdit = () => {
+                if (editVal.trim()) {
+                    const newList = [...items];
+                    newList[editingIndex] = editVal.trim();
+                    onUpdate(newList);
+                }
+                setEditingIndex(null);
+            };
+
+            return (
+                <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-700 uppercase">{title}</label>
+                    <div className="flex gap-2">
+                        <input className="flex-1 p-2 border rounded-lg text-sm bg-slate-50 focus:bg-white" placeholder={`Nueva opción...`} value={newVal} onChange={e => setNewVal(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAdd()} />
+                        <Button onClick={handleAdd} className="py-2"><Plus size={18}/></Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No hay opciones configuradas</p>}
+                        {items.map((item, idx) => (
+                            <div key={idx} className="bg-white border border-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 group hover:border-sky-300">
+                                {editingIndex === idx ? (
+                                    <div className="flex items-center gap-1">
+                                        <input className="outline-none w-20" autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={saveEdit} onKeyPress={e=>e.key==='Enter' && saveEdit()} />
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span>{item}</span>
+                                        <div className="flex gap-1">
+                                            <button type="button" onClick={() => startEdit(idx, item)} className="text-slate-300 hover:text-sky-500"><Edit size={10}/></button>
+                                            <button type="button" onClick={() => handleDelete(item)} className="text-slate-300 hover:text-rose-500"><X size={10}/></button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
         const PatientForm = ({ initialData, onSave, onCancel, options, setConfirmState }) => {
-            const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] });
+            const [formData, setFormData] = useState({ 
+                firstName: '', lastName: '', dni: '', birthDate: '', phone: '', 
+                healthInsurance: '', plan: '', memberNumber: '',
+                neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] 
+            });
             const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
             const [newPending, setNewPending] = useState("");
             const [showHistory, setShowHistory] = useState(false);
@@ -626,9 +733,7 @@
                             onCancel();
                         }
                     });
-                } else {
-                    onCancel();
-                }
+                } else { onCancel(); }
             };
 
             const askDeleteConsultation = (id) => {
@@ -678,11 +783,11 @@
                     <Card className="border-l-4 border-sky-500 shadow-lg">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><User size={18} /> Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1 col-span-1">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nombre</label>
                                 <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
                             </div>
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1 col-span-1">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Apellido</label>
                                 <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
                             </div>
@@ -693,6 +798,21 @@
                             <div className="flex flex-col gap-1">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">F. Nacimiento</label>
                                 <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
+                            </div>
+                            
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Obra Social / Prepaga</label>
+                                <input placeholder="Ej: OSDE" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.healthInsurance || ''} onChange={e => updateField('healthInsurance', e.target.value)} list="healthInsurances-list" />
+                                <datalist id="healthInsurances-list">{options.healthInsurances?.map(opt => <option key={opt} value={opt} />)}</datalist>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Plan</label>
+                                <input placeholder="Ej: 210" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.plan || ''} onChange={e => updateField('plan', e.target.value)} list="plans-list" />
+                                <datalist id="plans-list">{options.plans?.map(opt => <option key={opt} value={opt} />)}</datalist>
+                            </div>
+                            <div className="flex flex-col gap-1 col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nro de Afiliado</label>
+                                <input placeholder="Nro Afiliado" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.memberNumber || ''} onChange={e => updateField('memberNumber', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1 col-span-2">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Teléfono de contacto</label>
@@ -712,69 +832,37 @@
                     <Card className="shadow-md">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Stethoscope size={18} /> Consulta Actual</div>
                         <div className="space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Fecha de Consulta</label>
-                                <input type="date" className="w-full p-2 border rounded-lg text-sm bg-white" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
-                            </div>
-                            <TagInput label="Motivo de la visita" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
+                            <div className="flex flex-col gap-1"><label className="text-[10px] font-bold text-slate-500 uppercase px-1">Fecha</label><input type="date" className="w-full p-2 border rounded-lg text-sm" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} /></div>
+                            <TagInput label="Motivo" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Peso (kg)</label>
-                                    <input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Talla (cm)</label>
-                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">P.C. (cm)</label>
-                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
-                                </div>
+                                <div className="flex flex-col gap-1"><label className="text-[10px] text-center font-bold text-slate-500 uppercase">Peso (kg)</label><input type="number" step="0.01" className="p-2 border rounded-lg text-center" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} /></div>
+                                <div className="flex flex-col gap-1"><label className="text-[10px] text-center font-bold text-slate-500 uppercase">Talla (cm)</label><input type="number" step="0.1" className="p-2 border rounded-lg text-center" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} /></div>
+                                <div className="flex flex-col gap-1"><label className="text-[10px] text-center font-bold text-slate-500 uppercase">PC (cm)</label><input type="number" step="0.1" className="p-2 border rounded-lg text-center" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} /></div>
                             </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Evolución / Notas clínicas</label>
-                                <textarea placeholder="Redactar evolución..." className="w-full p-3 border rounded-lg text-sm h-28 resize-none bg-white" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
-                            </div>
+                            <textarea placeholder="Redactar evolución..." className="w-full p-3 border rounded-lg text-sm h-28 resize-none" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
                         </div>
                         
                         <div className="mt-4">
-                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-sky-600 transition-colors">Historial de consultas {showHistory ? '▲' : '▼'}</button>
+                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-sm font-bold text-slate-500 flex items-center gap-2">Historial {showHistory ? '▲' : '▼'}</button>
                             {showHistory && (
-                                <div className="mt-3 space-y-2 max-h-96 overflow-y-auto pr-1">
-                                    {formData.consultations?.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No hay consultas registradas</p>}
+                                <div className="mt-3 space-y-2 max-h-96 overflow-y-auto">
                                     {formData.consultations?.map(c => (
-                                        <div key={c.id} className="p-3 border rounded-xl bg-white text-xs shadow-sm border-slate-200">
+                                        <div key={c.id} className="p-3 border rounded-xl bg-white text-xs shadow-sm">
                                             {editingConsultationId === c.id ? (
-                                                <div className="space-y-3 animate-fade-in">
+                                                <div className="space-y-2 animate-fade-in">
                                                     <input type="date" className="p-2 border rounded-lg w-full" value={editData.dateStr} onChange={e => setEditData({...editData, dateStr: e.target.value})} />
-                                                    <TagInput label="Motivo" options={options.reasons} value={editData.motive} onChange={v => setEditData({...editData, motive: v})} />
-                                                    <div className="flex gap-2">
-                                                        <input placeholder="Peso" className="w-1/3 border p-2 rounded-lg text-center" value={editData.weight} onChange={e=>setEditData({...editData, weight: e.target.value})} />
-                                                        <input placeholder="Talla" className="w-1/3 border p-2 rounded-lg text-center" value={editData.height} onChange={e=>setEditData({...editData, height: e.target.value})} />
-                                                        <input placeholder="PC" className="w-1/3 border p-2 rounded-lg text-center" value={editData.headCircumference} onChange={e=>setEditData({...editData, headCircumference: e.target.value})} />
-                                                    </div>
-                                                    <textarea className="w-full border p-2 rounded-lg h-20" value={editData.notes} onChange={e=>setEditData({...editData, notes: e.target.value})} />
-                                                    <div className="flex gap-2">
-                                                        <Button variant="primary" className="flex-1 py-1" onClick={saveEdit}>Listo</Button>
-                                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>Cerrar</Button>
-                                                    </div>
+                                                    <textarea className="w-full border p-2 rounded-lg" value={editData.notes} onChange={e=>setEditData({...editData, notes: e.target.value})} />
+                                                    <div className="flex gap-2"><Button variant="primary" className="flex-1 py-1" onClick={saveEdit}>Listo</Button><Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>Cerrar</Button></div>
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <div className="flex justify-between font-bold text-sky-600 mb-2">
-                                                        <span className="flex items-center gap-2">{formatDate(c.date)} <span className="bg-sky-50 text-[10px] px-2 py-0.5 rounded-full border border-sky-100">{calculateAgeAtDate(formData.birthDate, c.date)}</span></span>
-                                                        <div className="flex gap-2">
-                                                            <button type="button" onClick={() => startEdit(c)} className="text-sky-500 hover:bg-sky-50 p-1.5 rounded-full"><Edit size={14} /></button>
-                                                            <button type="button" onClick={() => askDeleteConsultation(c.id)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-full"><Trash2 size={14} /></button>
-                                                        </div>
+                                                    <div className="flex justify-between font-bold text-sky-600 mb-1">
+                                                        <span>{formatDate(c.date)}</span>
+                                                        <div className="flex gap-2"><button type="button" onClick={() => startEdit(c)}><Edit size={14}/></button><button type="button" onClick={() => askDeleteConsultation(c.id)}><Trash2 size={14}/></button></div>
                                                     </div>
-                                                    <p className="font-semibold text-slate-800 mb-1">{c.motive?.join(', ') || 'Sin motivo especificado'}</p>
-                                                    {(c.weight || c.height || c.headCircumference) && (
-                                                        <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-2">
-                                                            {c.weight && `P: ${c.weight}kg `}{c.height && `| T: ${c.height}cm `}{c.headCircumference && `| PC: ${c.headCircumference}cm`}
-                                                        </p>
-                                                    )}
-                                                    <p className="text-slate-600 italic whitespace-pre-wrap leading-relaxed bg-slate-50 p-2 rounded-lg">{c.notes || 'Sin notas de evolución'}</p>
+                                                    <p className="font-semibold">{c.motive?.join(', ')}</p>
+                                                    <p className="text-slate-500 text-[10px]">{c.weight && `P: ${c.weight}kg `}{c.height && `T: ${c.height}cm`}</p>
+                                                    <p className="mt-1 italic whitespace-pre-wrap">{c.notes}</p>
                                                 </>
                                             )}
                                         </div>
@@ -784,80 +872,32 @@
                         </div>
                     </Card>
 
-                    <Card className="photo-container shadow-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex gap-2 text-sky-800 font-bold uppercase text-xs tracking-wider"><FileUp size={18} /> Adjuntos / Fotos</div>
-                            <div className="flex gap-2">
-                                <label className="bg-sky-50 text-sky-600 p-2.5 rounded-xl cursor-pointer hover:bg-sky-100 transition-all shadow-sm" title="Galería">
-                                    <Plus size={20} />
-                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImage(e)} />
-                                </label>
-                                <label className="bg-sky-100 text-sky-700 p-2.5 rounded-xl cursor-pointer hover:bg-sky-200 transition-all shadow-sm" title="Tomar Foto">
-                                    <Camera size={20} />
-                                    <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => handleImage(e)} />
-                                </label>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                            {(formData.images || []).map(img => (
-                                <div key={img.id} className="relative aspect-square rounded-xl border-2 border-slate-100 group bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                    <img 
-                                        src={img.src} 
-                                        onClick={() => setExpandedPhoto(img)}
-                                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                                    />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => askDeletePhoto(img.id)} 
-                                        className="absolute top-1 right-1 bg-rose-500/90 text-white rounded-full p-1 shadow-lg z-10 backdrop-blur-sm"
-                                    >
-                                        <X size={12} />
-                                    </button>
+                    <Card>
+                        <div className="flex justify-between items-center mb-4"><div className="flex gap-2 text-sky-800 font-bold uppercase text-xs"><FileUp size={18} /> Fotos</div><div className="flex gap-2"><label className="bg-sky-50 text-sky-600 p-2 rounded-xl cursor-pointer"><Plus size={18} /><input type="file" className="hidden" accept="image/*" onChange={e => handleImage(e)} /></label><label className="bg-sky-100 text-sky-700 p-2 rounded-xl cursor-pointer"><Camera size={18} /><input type="file" className="hidden" accept="image/*" capture="environment" onChange={e => handleImage(e)} /></label></div></div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {formData.images?.map(img => (
+                                <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border">
+                                    <img src={img.src} onClick={() => setExpandedPhoto(img)} className="w-full h-full object-cover cursor-pointer" />
+                                    <button type="button" onClick={() => askDeletePhoto(img.id)} className="absolute top-0 right-0 bg-rose-500 text-white p-0.5"><X size={10}/></button>
                                 </div>
                             ))}
-                            {(formData.images?.length === 0) && (
-                                <div className="col-span-3 py-6 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs font-bold uppercase tracking-widest">
-                                    Sin archivos cargados
-                                </div>
-                            )}
                         </div>
                     </Card>
 
-                    <Card className="bg-amber-50 border-amber-200 shadow-sm">
-                        <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs tracking-wider"><AlertCircle size={18} /> Pendientes de seguimiento</div>
-                        <div className="flex gap-2">
-                            <input className="flex-1 p-2.5 border border-amber-200 rounded-xl bg-white text-sm focus:ring-2 ring-amber-100 outline-none" value={newPending} placeholder="Ej: Traer carnet de vacunas..." onChange={e=>setNewPending(e.target.value)} />
-                            <Button variant="primary" className="!bg-amber-500 hover:!bg-amber-600 shadow-amber-500/20" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={20}/></Button>
-                        </div>
-                        <ul className="mt-3 space-y-2">
-                            {(formData.pendingItems || []).map(i => (
-                                <li key={i.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-amber-100 text-sm shadow-sm animate-fade-in">
-                                    <span className="text-slate-700">{i.text}</span>
-                                    <button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500 hover:bg-emerald-50 p-1 rounded-full"><CheckCircle size={20}/></button>
-                                </li>
-                            ))}
-                        </ul>
+                    <Card className="bg-amber-50 border-amber-200">
+                        <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs"><AlertCircle size={18} /> Pendientes</div>
+                        <div className="flex gap-2"><input className="flex-1 p-2 border rounded-lg text-sm" value={newPending} placeholder="Nuevo pendiente..." onChange={e=>setNewPending(e.target.value)} /><Button onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={18}/></Button></div>
+                        <ul className="mt-3 space-y-2">{(formData.pendingItems || []).map(i => (<li key={i.id} className="flex justify-between items-center p-2 bg-white rounded-lg border text-sm"><span>{i.text}</span><button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500"><CheckCircle size={18}/></button></li>))}</ul>
                     </Card>
 
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex gap-4 md:static md:bg-transparent md:p-0 md:border-0 z-40">
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t flex gap-4 z-40">
                         <Button variant="danger" className="flex-1 py-3" onClick={handleRequestCancel} disabled={isSavingLocal}>Cancelar</Button>
                         <Button type="submit" className="flex-1 py-3" disabled={isSavingLocal}>{isSavingLocal ? "Procesando..." : "Guardar Ficha"}</Button>
                     </div>
 
-                    {/* Lightbox para fotos */}
                     {expandedPhoto && (
                         <div className="fixed inset-0 bg-black/95 z-[300] flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setExpandedPhoto(null)}>
-                            <button className="absolute top-6 right-6 text-white bg-white/20 p-3 rounded-full hover:bg-white/40 transition-colors">
-                                <X size={32} />
-                            </button>
-                            <img 
-                                src={expandedPhoto.src} 
-                                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-fade-in-up" 
-                                onClick={(e) => e.stopPropagation()}
-                            />
-                            <div className="mt-6 text-white font-bold tracking-widest text-sm bg-white/10 px-6 py-2 rounded-full backdrop-blur-md border border-white/20">
-                                {expandedPhoto.date}
-                            </div>
+                            <img src={expandedPhoto.src} className="max-w-full max-h-[85vh] object-contain rounded-lg" />
                         </div>
                     )}
                 </form>
