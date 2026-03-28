@@ -34,6 +34,48 @@
 <body>
     <div id="root"></div>
 
+    <!--
+        REGISTRO DEL SERVICE WORKER
+        Debe hacerse ANTES de que Firebase se inicialice y lo antes posible.
+        Usamos un script clásico (no module) para máxima compatibilidad.
+    -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            // Esperamos a que la página cargue para no bloquear el render inicial
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/pediapp/sw.js', { scope: '/pediapp/' })
+                    .then((reg) => {
+                        console.log('[PediApp] Service Worker registrado. Scope:', reg.scope);
+
+                        // Si hay una nueva versión esperando, la activamos inmediatamente
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            if (newWorker) {
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        console.log('[PediApp] Nueva versión disponible.');
+                                        // Opcional: podrías mostrar un banner al usuario aquí
+                                    }
+                                });
+                            }
+                        });
+                    })
+                    .catch((err) => {
+                        console.error('[PediApp] Error al registrar Service Worker:', err);
+                    });
+
+                // Forzar recarga si el SW tomó control (para que use recursos cacheados)
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                        refreshing = true;
+                        // Solo recargamos si la página ya estaba cargada (no en la primera carga)
+                    }
+                });
+            });
+        }
+    </script>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -48,26 +90,35 @@
             appId: "1:639384422144:web:924e5fcbf41bb2d1cd15e5"
         };
 
+        let app, auth, db;
         const appId = "historia-clinica-v1";
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = initializeFirestore(app, {
-            localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-        });
-        
-        setPersistence(auth, browserLocalPersistence);
+
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            // browserLocalPersistence es clave: mantiene la sesión guardada localmente
+            await setPersistence(auth, browserLocalPersistence);
+            // persistentLocalCache es clave: guarda los datos de Firestore en IndexedDB
+            db = initializeFirestore(app, {
+                localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+            });
+        } catch (e) {
+            console.error("Error inicializando Firebase:", e);
+        }
 
         window.firebaseData = { 
             auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
             collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
         };
+
+        // Disparamos un evento custom para que React sepa que Firebase está listo
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
         
-        // --- Icons ---
+        // --- Icon System ---
         const Icon = ({ children, size = 24, className = "", ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`lucide ${className}`} {...props}>{children}</svg>
         );
@@ -76,48 +127,134 @@
         const Search = (props) => <Icon {...props}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></Icon>;
         const Trash2 = (props) => <Icon {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>;
         const ArrowLeft = (props) => <Icon {...props}><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></Icon>;
+        const AlertCircle = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
+        const CheckCircle = (props) => <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
         const Baby = (props) => <Icon {...props}><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></Icon>;
         const Stethoscope = (props) => <Icon {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></Icon>;
-        const Settings = (props) => <Icon {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>;
-        const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
         const LogOut = (props) => <Icon {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></Icon>;
         const Activity = (props) => <Icon {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></Icon>;
-        const Check = (props) => <Icon {...props}><polyline points="20 6 9 17 4 12"/></Icon>;
+        const Phone = (props) => <Icon {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></Icon>;
+        const WifiOff = (props) => <Icon {...props}><line x1="2" x2="22" y1="2" y2="22"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.929a10 10 0 0 1 5.17-2.69"/><path d="M18.83 10.24a10 10 0 0 1 1.17.69"/><path d="M2 9.429c.355-.333.729-.646 1.12-.94"/><path d="M17.47 4.96c.78.36 1.53.8 2.22 1.3"/></Icon>;
+        const Share2 = (props) => <Icon {...props}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
+        const Copy = (props) => <Icon {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v2"/></Icon>;
         const X = (props) => <Icon {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
+        const FileUp = (props) => <Icon {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></Icon>;
+        const Camera = (props) => <Icon {...props}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Icon>;
+        const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
+        const Maximize = (props) => <Icon {...props}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></Icon>;
+        const Wifi = (props) => <Icon {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></Icon>;
 
-        // --- UI Base ---
+        // --- Helpers ---
+        function calculateAge(birthDate) {
+            if (!birthDate) return "";
+            const today = new Date();
+            const birth = new Date(birthDate);
+            let years = today.getFullYear() - birth.getFullYear();
+            let months = today.getMonth() - birth.getMonth();
+            let days = today.getDate() - birth.getDate();
+            if (days < 0) { months--; days += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+            if (months < 0) { years--; months += 12; }
+            if (years >= 1) return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`;
+            if (months >= 1) return `${months} mes${months !== 1 ? 'es' : ''}${days > 0 ? `, ${days} día${days !== 1 ? 's' : ''}` : ''}`;
+            return `${days} día${days !== 1 ? 's' : ''}`;
+        }
+        
+        function calculateAgeAtDate(birthDateStr, consultationDateMs) {
+            if (!birthDateStr || !consultationDateMs) return "";
+            const birth = new Date(birthDateStr);
+            const consultation = new Date(consultationDateMs);
+            let years = consultation.getFullYear() - birth.getFullYear();
+            let months = consultation.getMonth() - birth.getMonth();
+            let days = consultation.getDate() - birth.getDate();
+            if (days < 0) { months--; days += new Date(consultation.getFullYear(), consultation.getMonth(), 0).getDate(); }
+            if (months < 0) { years--; months += 12; }
+            if (years >= 1) return `${years} a, ${months} m`;
+            if (months >= 1) return `${months} m, ${days} d`;
+            return `${days} d`;
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return 'Sin fecha';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text; document.body.appendChild(textarea); textarea.select();
+            try { document.execCommand('copy'); return true; } catch (err) { return false; } finally { document.body.removeChild(textarea); }
+        }
+        function buildBackupData(patients) {
+            return { metadata: { app: "PediApp", exportedAt: new Date().toISOString(), patientCount: patients.length }, patients };
+        }
+        function downloadBackup(data) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = `pediapp-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+            URL.revokeObjectURL(url);
+        }
+        function generatePatientSummary(patient) {
+            const age = calculateAge(patient.birthDate);
+            let summary = `--- Historia Clínica: ${patient.lastName}, ${patient.firstName} ---\nDNI: ${patient.dni}\n`;
+            if (patient.phone) summary += `Tel: ${patient.phone}\n`;
+            summary += `F. Nac: ${patient.birthDate} (${age})\n\n`;
+            summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            summary += `ANTECEDENTES PATOLÓGICOS:\n- ${patient.pathologicalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
+            if (patient.consultations?.length > 0) {
+                summary += `CONSULTAS:\n`;
+                [...patient.consultations].sort((a, b) => b.date - a.date).forEach(c => {
+                    summary += `\n--- ${formatDate(c.date)} ---\n`;
+                    if (c.motive?.length > 0) summary += `Motivo: ${c.motive.join(', ')}\n`;
+                    if (c.weight || c.height) summary += `P: ${c.weight}kg | T: ${c.height}cm\n`;
+                    if (c.notes) summary += `Notas: ${c.notes}\n`;
+                });
+            }
+            return summary;
+        }
+
+        // --- UI Components ---
         const Card = ({ children, className = "", onClick }) => (
             <div onClick={onClick} className={`bg-white rounded-xl shadow-sm border border-slate-100 p-4 ${className}`}>{children}</div>
         );
 
         const Button = ({ children, onClick, variant = "primary", className = "", type = "button", disabled = false }) => {
-            const baseStyle = "px-4 py-2 rounded-lg font-bold transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50";
+            const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50";
             const variants = {
                 primary: "bg-sky-500 text-white hover:bg-sky-600 shadow-lg shadow-sky-500/30",
                 secondary: "bg-slate-100 text-slate-700 hover:bg-slate-200",
                 danger: "bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200",
+                outline: "border-2 border-slate-200 text-slate-600 hover:border-sky-500"
             };
             return <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>{children}</button>;
         };
 
-        const SuggestionInput = ({ label, options = [], value, onChange, placeholder, className = "" }) => {
-            const [isOpen, setIsOpen] = useState(false);
-            const [localValue, setLocalValue] = useState(value || "");
-            useEffect(() => { setLocalValue(value || ""); }, [value]);
-            const filteredOptions = options.filter(opt => opt.toLowerCase().includes(localValue.toLowerCase()) && opt.toLowerCase() !== localValue.toLowerCase());
+        const Modal = ({ children, isOpen, onClose, title, size = "md" }) => {
+            if (!isOpen) return null;
+            const sizes = { md: "max-w-md", lg: "max-w-2xl", xl: "max-w-4xl" };
             return (
-                <div className={`relative flex flex-col gap-1 ${className}`}>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1">{label}</label>
-                    <input type="text" value={localValue} onChange={(e) => { setLocalValue(e.target.value); onChange(e.target.value); setIsOpen(true); }}
-                        onFocus={() => setIsOpen(true)} onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-                        placeholder={placeholder} className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white text-sm outline-none" />
-                    {isOpen && filteredOptions.length > 0 && (
-                        <div className="absolute z-50 top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-40 overflow-y-auto">
-                            {filteredOptions.map(opt => (
-                                <div key={opt} className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-slate-700" onMouseDown={() => { onChange(opt); setLocalValue(opt); setIsOpen(false); }}>{opt}</div>
-                            ))}
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+                    <Card className={`p-6 w-full ${sizes[size]} max-h-[90vh] overflow-y-auto shadow-2xl relative`} onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-start border-b pb-3 mb-4 sticky top-0 bg-white z-[110]">
+                            <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X size={24} /></button>
                         </div>
-                    )}
+                        {children}
+                    </Card>
+                </div>
+            );
+        };
+
+        const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, variant = "danger" }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 animate-fade-in" onClick={onCancel}>
+                    <Card className="p-6 w-full max-w-sm shadow-2xl animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
+                        <p className="text-slate-600 text-sm mb-6 leading-relaxed">{message}</p>
+                        <div className="flex gap-3">
+                            <Button variant="secondary" className="flex-1" onClick={onCancel}>Cancelar</Button>
+                            <Button variant={variant === "danger" ? "danger" : "primary"} className="flex-1" onClick={onConfirm}>Confirmar</Button>
+                        </div>
+                    </Card>
                 </div>
             );
         };
@@ -145,262 +282,584 @@
                             onFocus={() => setIsOpen(true)} onBlur={() => setTimeout(() => setIsOpen(false), 200)}
                             className="bg-transparent outline-none flex-1 min-w-[120px] text-sm" placeholder={placeholder} />
                     </div>
-                    {isOpen && filteredOptions.length > 0 && (
+                    {isOpen && (input.length > 0 || filteredOptions.length > 0) && (
                         <div className="absolute z-10 top-full left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
                             {filteredOptions.map(opt => (
                                 <div key={opt} className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-slate-700" onMouseDown={() => handleAdd(opt)}>{opt}</div>
                             ))}
+                            {input.trim() && <div className="px-3 py-2 hover:bg-sky-50 cursor-pointer text-sm text-sky-600 border-t" onMouseDown={() => handleAdd(input.trim())}>Agregar "{input}"</div>}
                         </div>
                     )}
                 </div>
             );
         };
 
-        // --- Main Views ---
-        const AuthView = () => {
-            const [email, setEmail] = useState("");
-            const [password, setPassword] = useState("");
-            const [isRegistering, setIsRegistering] = useState(false);
-            const [error, setError] = useState("");
-
-            const handleAuth = async (e) => {
-                e.preventDefault(); setError("");
-                const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window.firebaseData;
-                try {
-                    if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
-                    else await signInWithEmailAndPassword(auth, email, password);
-                } catch (err) { setError("Error: Credenciales inválidas o problema de red."); }
-            };
-
-            return (
-                <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                    <Card className="w-full max-w-sm p-8 shadow-xl">
-                        <div className="flex flex-col items-center gap-3 mb-8">
-                            <div className="bg-sky-100 p-4 rounded-full text-sky-600"><Stethoscope size={40} /></div>
-                            <h1 className="text-2xl font-extrabold text-slate-800">PediApp</h1>
-                        </div>
-                        <form className="space-y-4" onSubmit={handleAuth}>
-                            <input type="email" required placeholder="Email" className="w-full p-3 border rounded-lg text-sm" value={email} onChange={e => setEmail(e.target.value)} />
-                            <input type="password" required placeholder="Contraseña" className="w-full p-3 border rounded-lg text-sm" value={password} onChange={e => setPassword(e.target.value)} />
-                            <Button type="submit" className="w-full">{isRegistering ? 'Crear Cuenta' : 'Ingresar'}</Button>
-                        </form>
-                        <button onClick={() => setIsRegistering(!isRegistering)} className="w-full mt-4 text-sky-600 text-xs font-bold uppercase tracking-widest">{isRegistering ? 'Ya tengo cuenta' : '¿Nuevo usuario? Regístrate'}</button>
-                        {error && <p className="mt-4 text-rose-500 text-[10px] text-center font-bold uppercase tracking-tight">{error}</p>}
-                    </Card>
-                </div>
-            );
-        };
-
+        // --- Main App ---
         const App = () => {
+            const [firebaseReady, setFirebaseReady] = useState(!!window.firebaseData?.auth);
             const [user, setUser] = useState(null);
-            const [isLoading, setIsLoading] = useState(true);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [isRegistering, setIsRegistering] = useState(false);
+            const [authError, setAuthError] = useState('');
+            const [isOnline, setIsOnline] = useState(navigator.onLine);
             const [view, setView] = useState("list");
             const [patients, setPatients] = useState([]);
             const [currentPatient, setCurrentPatient] = useState(null);
             const [searchTerm, setSearchTerm] = useState("");
-            const [confirmState, setConfirmState] = useState({ isOpen: false });
+            const [isAppLoading, setIsAppLoading] = useState(true);
+            const [sharePatientData, setSharePatientData] = useState(null);
+            
+            const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
+            const fileInputRef = useRef(null);
+
+            // Esperar a que Firebase esté listo (puede llegar tarde si el módulo carga lento)
             useEffect(() => {
-                const init = () => {
-                    const { auth, onAuthStateChanged } = window.firebaseData;
-                    onAuthStateChanged(auth, (u) => {
-                        setUser(u);
-                        setIsLoading(false);
-                    });
-                };
-                if (window.firebaseData) init();
-                else window.addEventListener('firebase-ready', init);
+                if (window.firebaseData?.auth) {
+                    setFirebaseReady(true);
+                    return;
+                }
+                const handler = () => setFirebaseReady(true);
+                window.addEventListener('firebase-ready', handler);
+                return () => window.removeEventListener('firebase-ready', handler);
             }, []);
 
             useEffect(() => {
-                if (!user) return;
+                const handleOnlineStatus = () => setIsOnline(navigator.onLine);
+                window.addEventListener('online', handleOnlineStatus);
+                window.addEventListener('offline', handleOnlineStatus);
+                return () => {
+                    window.removeEventListener('online', handleOnlineStatus);
+                    window.removeEventListener('offline', handleOnlineStatus);
+                };
+            }, []);
+
+            useEffect(() => {
+                if (!firebaseReady) return;
+                const { auth, onAuthStateChanged } = window.firebaseData;
+                if (!auth) return;
+                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                    setUser(currentUser);
+                    setIsAppLoading(false);
+                });
+                return () => unsubscribe();
+            }, [firebaseReady]);
+
+            useEffect(() => {
+                if (!user) { setPatients([]); return; }
                 const { db, appId, collection, onSnapshot } = window.firebaseData;
+                if (!db) return;
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                return onSnapshot(colRef, (snap) => setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-            }, [user]);
+                return onSnapshot(colRef, (snapshot) => {
+                    const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    loaded.sort((a, b) => (b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt || 0)) - (a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt || 0)));
+                    setPatients(loaded);
+                }, (error) => {
+                    // En modo offline con cache, esto puede fallar en la red pero Firestore
+                    // entrega datos locales igualmente — no es un error real
+                    console.warn('[PediApp] Firestore snapshot error (probablemente offline):', error.code);
+                });
+            }, [user, firebaseReady]);
 
             const dynamicRepertoire = useMemo(() => {
-                const neonatal = new Set(); const pathological = new Set();
-                const reasons = new Set(); const insurances = new Set(); const plans = new Set();
+                const neonatal = new Set(["Prematuro", "Sano"]);
+                const pathological = new Set(["Asma", "Alergia"]);
+                const reasons = new Set(["Control", "Fiebre"]);
                 patients.forEach(p => {
                     p.neonatalHistory?.forEach(v => neonatal.add(v));
                     p.pathologicalHistory?.forEach(v => pathological.add(v));
                     p.consultations?.forEach(c => c.motive?.forEach(v => reasons.add(v)));
-                    if (p.insurance) insurances.add(p.insurance);
-                    if (p.plan) plans.add(p.plan);
                 });
-                return { neonatal: Array.from(neonatal).sort(), pathological: Array.from(pathological).sort(), reasons: Array.from(reasons).sort(), insurances: Array.from(insurances).sort(), plans: Array.from(plans).sort() };
+                return { neonatal: Array.from(neonatal).sort(), pathological: Array.from(pathological).sort(), reasons: Array.from(reasons).sort() };
             }, [patients]);
 
-            if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-sky-600 animate-pulse uppercase tracking-widest">Iniciando...</div>;
-            if (!user) return <AuthView />;
+            const handleAuth = async (e) => {
+                e.preventDefault(); setAuthError(''); setIsAppLoading(true);
+                const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window.firebaseData;
+                try {
+                    if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
+                    else await signInWithEmailAndPassword(auth, email, password);
+                } catch (err) {
+                    setAuthError(err.message);
+                    setIsAppLoading(false);
+                }
+            };
+
+            const handleSave = (data) => {
+                const { db, appId, collection, addDoc, updateDoc, doc, serverTimestamp } = window.firebaseData;
+                if (!user || !db) return;
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+                // CRÍTICO: no usar await ni condicional con isOnline.
+                // Firestore con persistentLocalCache encola la escritura internamente
+                // y la sincroniza cuando vuelve la red. Usar await bloquea si no hay red.
+                // serverTimestamp() también funciona offline — Firestore lo resuelve al sincronizar.
+                const toSave = { ...data, updatedAt: serverTimestamp() };
+                try {
+                    if (currentPatient?.id) {
+                        updateDoc(doc(colRef, currentPatient.id), toSave);
+                    } else {
+                        addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
+                    }
+                    // Navegar inmediatamente — no esperar confirmación del servidor
+                    setView("list");
+                    setCurrentPatient(null);
+                } catch (e) {
+                    alert("Error al procesar: " + e.message);
+                }
+            };
+
+            const askConfirmDeletePatient = (e, p) => {
+                e.stopPropagation();
+                setConfirmState({
+                    isOpen: true,
+                    title: "¿Eliminar Paciente?",
+                    message: `¿Estás seguro de que quieres eliminar a ${p.firstName} ${p.lastName}? Esta acción no se puede deshacer.`,
+                    onConfirm: () => {
+                        const { db, appId, doc, deleteDoc } = window.firebaseData;
+                        deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id));
+                        setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    }
+                });
+            };
+
+            const filtered = patients.filter(p => `${p.firstName} ${p.lastName} ${p.dni}`.toLowerCase().includes(searchTerm.toLowerCase()));
+            const listToRender = searchTerm ? filtered : filtered.slice(0, 10);
+
+            // Pantalla de carga inicial
+            if (!firebaseReady || (isAppLoading && patients.length === 0 && !user)) {
+                return (
+                    <div className="h-screen flex flex-col items-center justify-center text-slate-500 gap-4">
+                        <div className="text-sky-500"><Baby size={48} /></div>
+                        <p className="font-bold text-xl animate-pulse">Iniciando PediApp...</p>
+                        {!isOnline && (
+                            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-full text-sm font-bold border border-amber-200">
+                                <WifiOff size={16} /> Modo offline
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return (
+                    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                        <Card className="w-full max-w-md p-8 shadow-xl">
+                            <div className="flex flex-col items-center gap-3 mb-8">
+                                <div className="bg-sky-100 p-4 rounded-full text-sky-600"><Stethoscope size={40} /></div>
+                                <h1 className="text-2xl font-bold text-slate-800">PediApp</h1>
+                                {!isOnline && (
+                                    <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full text-xs font-bold border border-amber-200">
+                                        <WifiOff size={12} /> Sin conexión — necesitás internet para iniciar sesión por primera vez
+                                    </div>
+                                )}
+                            </div>
+                            <form className="space-y-4" onSubmit={handleAuth}>
+                                <div><label className="block text-sm font-bold text-slate-700">Email</label><input type="email" required className="w-full p-3 border rounded-lg" value={email} onChange={e => setEmail(e.target.value)} /></div>
+                                <div><label className="block text-sm font-bold text-slate-700">Contraseña</label><input type="password" required className="w-full p-3 border rounded-lg" value={password} onChange={e => setPassword(e.target.value)} /></div>
+                                <Button type="submit" className="w-full" disabled={isAppLoading}>{isRegistering ? 'Crear Cuenta' : 'Iniciar Sesión'}</Button>
+                            </form>
+                            <button onClick={() => setIsRegistering(!isRegistering)} className="w-full mt-4 text-sky-600 text-sm font-bold">{isRegistering ? 'Ya tengo cuenta' : 'Crear cuenta'}</button>
+                            {authError && <p className="mt-4 text-rose-500 text-xs text-center">{authError}</p>}
+                        </Card>
+                    </div>
+                );
+            }
+
+            const { auth, signOut } = window.firebaseData;
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 shadow-xl relative">
-                    {confirmState.isOpen && (
-                        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-                            <Card className="w-full max-w-xs">
-                                <h3 className="font-bold text-slate-800 mb-2">{confirmState.title}</h3>
-                                <p className="text-sm text-slate-600 mb-6">{confirmState.message}</p>
-                                <div className="flex gap-2">
-                                    <Button variant="secondary" className="flex-1" onClick={() => setConfirmState({isOpen:false})}>Cancelar</Button>
-                                    <Button variant="danger" className="flex-1" onClick={confirmState.onConfirm}>Confirmar</Button>
-                                </div>
-                            </Card>
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-20 md:max-w-2xl lg:max-w-4xl shadow-2xl relative overflow-hidden">
+                    <ConfirmModal {...confirmState} onCancel={() => setConfirmState(prev => ({...prev, isOpen: false}))} />
+                    
+                    {/* Banner de estado de conexión */}
+                    {!isOnline && (
+                        <div className="bg-amber-500 text-white text-[10px] text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2">
+                            <WifiOff size={12} /> MODO OFFLINE — Los cambios se sincronizarán al reconectar
                         </div>
                     )}
-
+                    
                     <header className="bg-white px-4 py-4 sticky top-0 z-20 border-b flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sky-600 cursor-pointer" onClick={() => setView('list')}>
+                        <div className="flex items-center gap-2 text-sky-600">
                             <Baby size={28} />
                             <h1 className="text-xl font-bold text-slate-800 tracking-tight">PediApp</h1>
+                            {isOnline 
+                                ? <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Online"></span>
+                                : <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" title="Offline"></span>
+                            }
                         </div>
-                        <div className="flex items-center gap-1">
-                            <button onClick={() => setView('settings')} className={`p-2 rounded-full ${view === 'settings' ? 'bg-sky-100 text-sky-600' : 'text-slate-400'}`}><Settings size={22} /></button>
-                            <button onClick={() => window.firebaseData.signOut(window.firebaseData.auth)} className="p-2 text-slate-400"><LogOut size={22} /></button>
+                        <div className="flex items-center gap-2">
+                            {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2 transition-colors"><LogOut size={20} /></button>}
                         </div>
                     </header>
 
                     <main className="p-4">
-                        {view === 'list' && (
-                            <div className="space-y-4 animate-fade-in">
-                                <div className="bg-white p-3 rounded-xl border space-y-3 shadow-sm">
-                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input placeholder="Buscar paciente u obra social..." className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-lg outline-none text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
-                                    <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full"><Plus size={20} /> Nuevo Paciente</Button>
+                        {view === 'list' ? (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
+                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente por nombre o DNI..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+                                    <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full py-3"><Plus size={20} /> Nuevo Paciente</Button>
+                                    <div className="flex gap-2 text-[10px]">
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar Historial</Button>
+                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar Datos</Button>
+                                        <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
+                                            const file = e.target.files[0]; if(!file) return;
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => {
+                                                try {
+                                                    const data = JSON.parse(ev.target.result);
+                                                    if(data.patients) data.patients.forEach(p => { delete p.id; handleSave(p); });
+                                                } catch(err) { alert("Error al importar el archivo JSON"); }
+                                            };
+                                            reader.readAsText(file);
+                                        }} />
+                                    </div>
                                 </div>
-                                {patients.filter(p => `${p.firstName} ${p.lastName} ${p.dni} ${p.insurance}`.toLowerCase().includes(searchTerm.toLowerCase())).map(p => (
-                                    <Card key={p.id} onClick={() => { setCurrentPatient(p); setView('form'); }} className="cursor-pointer hover:border-sky-300 transition-colors">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h3 className="font-bold text-slate-800">{p.lastName}, {p.firstName}</h3>
-                                                <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">DNI: {p.dni}</p>
-                                                {p.insurance && <p className="text-[10px] text-sky-600 font-extrabold mt-1 uppercase tracking-tighter">{p.insurance} {p.plan ? `(${p.plan})` : ''}</p>}
-                                            </div>
-                                            <button onClick={(e) => { e.stopPropagation(); setConfirmState({isOpen:true, title:"Borrar", message:`¿Eliminar a ${p.firstName}?`, onConfirm:() => { window.firebaseData.deleteDoc(window.firebaseData.doc(window.firebaseData.db, 'artifacts', window.firebaseData.appId, 'users', user.uid, 'patients', p.id)); setConfirmState({isOpen:false}); }}); }} className="text-slate-200 hover:text-rose-400 transition-colors"><Trash2 size={18} /></button>
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
 
-                        {view === 'form' && (
+                                <div className="space-y-3">
+                                    <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50">
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nro total de paciente = {patients.length}</span>
+                                            {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">Se muestran los ultimos diez pacientes ingresados</span>}
+                                        </div>
+                                    </div>
+
+                                    {listToRender.map(p => (
+                                        <Card key={p.id} className="cursor-pointer relative group hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.98]" onClick={() => { setCurrentPatient(p); setView('form'); }}>
+                                            <div className="pr-16">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h3 className="font-bold text-slate-800 leading-tight">{p.lastName}, {p.firstName}</h3>
+                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase"><AlertCircle size={10} /> {p.pendingItems.length} pendientes</span>}
+                                                </div>
+                                                <div className="mt-1 space-y-0.5 text-xs">
+                                                    <p className="text-slate-500"><span className="font-bold text-slate-400">DNI:</span> {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
+                                                    {p.phone && <p className="text-sky-600 font-medium flex items-center gap-1"><Phone size={10} /> {p.phone}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="absolute top-4 right-2 flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => { e.stopPropagation(); setSharePatientData(p); }} className="text-sky-500 p-2 hover:bg-sky-50 rounded-full"><Share2 size={18} /></button>
+                                                <button onClick={(e) => askConfirmDeletePatient(e, p)} className="text-rose-400 p-2 hover:bg-rose-50 rounded-full"><Trash2 size={18} /></button>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
                             <PatientForm 
                                 initialData={currentPatient} 
-                                onSave={(data) => {
-                                    const { db, appId, collection, addDoc, updateDoc, doc, serverTimestamp } = window.firebaseData;
-                                    const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                                    const toSave = { ...data, updatedAt: serverTimestamp() };
-                                    if (currentPatient?.id) updateDoc(doc(colRef, currentPatient.id), toSave);
-                                    else addDoc(colRef, { ...toSave, createdAt: serverTimestamp() });
-                                    setView("list");
-                                }} 
-                                onCancel={() => setView('list')} 
+                                onSave={handleSave} 
+                                onCancel={() => {setView("list"); setCurrentPatient(null);}} 
                                 options={dynamicRepertoire} 
+                                setConfirmState={setConfirmState}
                             />
                         )}
-
-                        {view === 'settings' && (
-                            <SettingsView repertoire={dynamicRepertoire} user={user} setConfirmState={setConfirmState} patients={patients} />
-                        )}
                     </main>
+
+                    {sharePatientData && (
+                        <Modal isOpen={!!sharePatientData} onClose={() => setSharePatientData(null)} title={`Compartir de ${sharePatientData.lastName}`}>
+                            <div className="bg-slate-50 p-3 rounded-lg border text-xs font-mono mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap leading-relaxed">{generatePatientSummary(sharePatientData)}</div>
+                            <Button variant="primary" className="w-full py-3" onClick={() => { copyToClipboard(generatePatientSummary(sharePatientData)); setSharePatientData(null); }}>Copiar al Portapapeles</Button>
+                        </Modal>
+                    )}
                 </div>
             );
         };
 
-        const SettingsView = ({ repertoire, user, setConfirmState, patients }) => {
-            const updateGlobalValue = async (category, oldValue, newValue) => {
-                const { db, appId, doc, updateDoc } = window.firebaseData;
-                const batch = patients.filter(p => {
-                    if (category === 'insurances') return p.insurance === oldValue;
-                    if (category === 'plans') return p.plan === oldValue;
-                    if (category === 'neonatal') return p.neonatalHistory?.includes(oldValue);
-                    if (category === 'pathological') return p.pathologicalHistory?.includes(oldValue);
-                    return false;
-                });
-                for (const p of batch) {
-                    let update = {};
-                    if (category === 'insurances') update = { insurance: newValue };
-                    if (category === 'plans') update = { plan: newValue };
-                    if (category === 'neonatal') update = { neonatalHistory: newValue ? p.neonatalHistory.map(v => v === oldValue ? newValue : v) : p.neonatalHistory.filter(v => v !== oldValue) };
-                    if (category === 'pathological') update = { pathologicalHistory: newValue ? p.pathologicalHistory.map(v => v === oldValue ? newValue : v) : p.pathologicalHistory.filter(v => v !== oldValue) };
-                    await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'patients', p.id), update);
-                }
-            };
-
-            const [editState, setEditState] = useState(null);
-
-            const CategoryList = ({ title, items, categoryKey }) => (
-                <div className="space-y-2">
-                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">{title}</h4>
-                    <div className="space-y-1">
-                        {items.map(item => (
-                            <div key={item} className="bg-white p-3 rounded-xl border flex justify-between items-center">
-                                {editState?.value === item && editState?.category === categoryKey ? (
-                                    <div className="flex gap-1 w-full">
-                                        <input autoFocus className="flex-1 text-sm border p-1 rounded" id={`edit-${item}`} defaultValue={item} />
-                                        <button onClick={() => { updateGlobalValue(categoryKey, item, document.getElementById(`edit-${item}`).value); setEditState(null); }} className="text-emerald-500"><Check size={18}/></button>
-                                        <button onClick={() => setEditState(null)} className="text-slate-400"><X size={18}/></button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className="text-xs font-bold text-slate-700">{item}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setEditState({category: categoryKey, value: item})} className="text-sky-400 hover:text-sky-600"><Edit size={16}/></button>
-                                            <button onClick={() => setConfirmState({ isOpen: true, title: "Eliminar", message: `¿Quitar "${item}" de todos los registros?`, onConfirm: () => { updateGlobalValue(categoryKey, item, null); setConfirmState({isOpen:false}); } })} className="text-rose-300 hover:text-rose-500"><Trash2 size={16}/></button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-
-            return (
-                <div className="space-y-6 animate-fade-in-up">
-                    <div className="bg-sky-500 p-6 rounded-2xl text-white shadow-lg shadow-sky-500/20">
-                        <h2 className="text-lg font-extrabold flex items-center gap-2"><Settings size={22}/> Gestión Global</h2>
-                        <p className="text-[10px] opacity-80 uppercase tracking-widest mt-1 font-bold">Edita erratas de Obras Sociales o Antecedentes en un solo paso.</p>
-                    </div>
-                    <CategoryList title="Obras Sociales" items={repertoire.insurances} categoryKey="insurances" />
-                    <CategoryList title="Planes" items={repertoire.plans} categoryKey="plans" />
-                    <CategoryList title="Antecedentes Neonatales" items={repertoire.neonatal} categoryKey="neonatal" />
-                </div>
-            );
-        };
-
-        const PatientForm = ({ initialData, onSave, onCancel, options }) => {
-            const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', insurance: '', plan: '', memberNumber: '', neonatalHistory: [], pathologicalHistory: [], consultations: [] });
+        const PatientForm = ({ initialData, onSave, onCancel, options, setConfirmState }) => {
+            const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] });
             const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
+            const [newPending, setNewPending] = useState("");
+            const [showHistory, setShowHistory] = useState(false);
+            const [isSavingLocal, setIsSavingLocal] = useState(false);
+            const [editingConsultationId, setEditingConsultationId] = useState(null);
+            const [editData, setEditData] = useState(null);
+            const [expandedPhoto, setExpandedPhoto] = useState(null);
+            const [isDirty, setIsDirty] = useState(false);
 
             useEffect(() => { if (initialData) setFormData({ ...initialData }); }, [initialData]);
 
+            const updateField = (field, value) => {
+                setFormData(p => ({ ...p, [field]: value }));
+                setIsDirty(true);
+            };
+
+            const handleImage = (e, capture = false) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const img = new Image();
+                    img.src = reader.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const maxDim = 1000; 
+                        let w = img.width, h = img.height;
+                        if (w > maxDim || h > maxDim) { const r = Math.min(maxDim / w, maxDim / h); w *= r; h *= r; }
+                        canvas.width = w; canvas.height = h;
+                        ctx.drawImage(img, 0, 0, w, h);
+                        updateField('images', [...(formData.images || []), { id: Date.now(), src: canvas.toDataURL('image/jpeg', 0.8), date: new Date().toLocaleDateString('es-AR') }]);
+                    };
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault(); setIsSavingLocal(true);
+                let consultations = [...(formData.consultations || [])];
+                const { weight, height, headCircumference, notes, motive } = newConsultation;
+                if (weight || height || headCircumference || notes || motive.length > 0) {
+                    const [y, m, d] = newConsultation.date.split("-").map(Number);
+                    consultations.push({ ...newConsultation, date: new Date(y, m - 1, d, 12, 0, 0).getTime(), id: Date.now() });
+                }
+                onSave({ ...formData, consultations: consultations.sort((a,b) => b.date - a.date) });
+            };
+
+            const handleRequestCancel = () => {
+                if (isDirty || newConsultation.notes || newConsultation.weight) {
+                    setConfirmState({
+                        isOpen: true,
+                        title: "¿Salir sin guardar?",
+                        message: "Has realizado cambios en la ficha. Si sales ahora, se perderán todos los datos no guardados.",
+                        onConfirm: () => {
+                            setConfirmState(p => ({ ...p, isOpen: false }));
+                            onCancel();
+                        }
+                    });
+                } else {
+                    onCancel();
+                }
+            };
+
+            const askDeleteConsultation = (id) => {
+                setConfirmState({
+                    isOpen: true,
+                    title: "¿Eliminar Consulta?",
+                    message: "¿Seguro que quieres borrar este registro del historial?",
+                    onConfirm: () => {
+                        updateField('consultations', formData.consultations.filter(x => x.id !== id));
+                        setConfirmState(p => ({ ...p, isOpen: false }));
+                    }
+                });
+            };
+
+            const askDeletePhoto = (id) => {
+                setConfirmState({
+                    isOpen: true,
+                    title: "¿Eliminar Foto?",
+                    message: "¿Quieres borrar este archivo adjunto?",
+                    onConfirm: () => {
+                        updateField('images', formData.images.filter(i => i.id !== id));
+                        setConfirmState(p => ({ ...p, isOpen: false }));
+                    }
+                });
+            };
+
+            const startEdit = (c) => {
+                setEditingConsultationId(c.id);
+                setEditData({ ...c, dateStr: new Date(c.date).toISOString().split('T')[0] });
+            };
+
+            const saveEdit = () => {
+                const [y, m, d] = editData.dateStr.split("-").map(Number);
+                const updated = { ...editData, date: new Date(y, m - 1, d, 12, 0, 0).getTime() };
+                delete updated.dateStr;
+                const updatedConsultations = formData.consultations.map(c => c.id === editingConsultationId ? updated : c);
+                updateField('consultations', updatedConsultations.sort((a,b) => b.date - a.date));
+                setEditingConsultationId(null); setEditData(null);
+            };
+
             return (
-                <form className="space-y-6 animate-fade-in-up pb-10" onSubmit={e => { e.preventDefault(); onSave(formData); }}>
-                    <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-[10px] tracking-widest border-l-4 border-sky-500 pl-3 py-1">Ficha del Paciente</div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                        <input placeholder="Nombre" required className="p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-sky-100" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-                        <input placeholder="Apellido" required className="p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-sky-100" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-                        <input placeholder="DNI" required type="number" className="p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-sky-100" value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value})} />
-                        <input required type="date" className="p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-sky-100" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} />
-                        <SuggestionInput label="Obra Social" options={options.insurances} value={formData.insurance} onChange={v => setFormData({...formData, insurance: v})} className="col-span-2" />
-                        <SuggestionInput label="Plan" options={options.plans} value={formData.plan} onChange={v => setFormData({...formData, plan: v})} />
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase px-1">Nro Afiliado</label>
-                            <input className="p-3 border rounded-xl bg-white text-sm outline-none focus:ring-2 ring-sky-100" value={formData.memberNumber || ''} onChange={e => setFormData({...formData, memberNumber: e.target.value})} />
-                        </div>
+                <form className="space-y-6 pb-24 animate-fade-in-up" onSubmit={handleSubmit}>
+                    <div className="mb-4">
+                        <Button variant="secondary" onClick={handleRequestCancel} className="text-xs py-1"><ArrowLeft size={16} /> Volver a la Lista</Button>
                     </div>
 
-                    <Card>
-                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-[10px] tracking-widest">Historial Médico</div>
-                        <TagInput label="Neonatales" options={options.neonatal} value={formData.neonatalHistory} onChange={v => setFormData({...formData, neonatalHistory: v})} />
-                        <TagInput label="Patológicos" options={options.pathological} value={formData.pathologicalHistory} onChange={v => setFormData({...formData, pathologicalHistory: v})} />
+                    <Card className="border-l-4 border-sky-500 shadow-lg">
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><User size={18} /> Datos Personales</div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nombre</label>
+                                <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Apellido</label>
+                                <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">DNI</label>
+                                <input placeholder="DNI" required type="number" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">F. Nacimiento</label>
+                                <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1 col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Teléfono de contacto</label>
+                                <input placeholder="Ej: 11 1234 5678" type="tel" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
+                            </div>
+                        </div>
                     </Card>
 
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t flex gap-4 z-40">
-                        <Button variant="secondary" className="flex-1" onClick={onCancel}>Cancelar</Button>
-                        <Button type="submit" className="flex-1 shadow-lg shadow-sky-500/30">Guardar Ficha</Button>
+                    <Card>
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Activity size={18} /> Antecedentes</div>
+                        <div className="space-y-3">
+                            <TagInput label="Neonatales" options={options.neonatal} value={formData.neonatalHistory} onChange={v => updateField('neonatalHistory', v)} />
+                            <TagInput label="Patológicos" options={options.pathological} value={formData.pathologicalHistory} onChange={v => updateField('pathologicalHistory', v)} />
+                        </div>
+                    </Card>
+
+                    <Card className="shadow-md">
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Stethoscope size={18} /> Consulta Actual</div>
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Fecha de Consulta</label>
+                                <input type="date" className="w-full p-2 border rounded-lg text-sm bg-white" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
+                            </div>
+                            <TagInput label="Motivo de la visita" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Peso (kg)</label>
+                                    <input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Talla (cm)</label>
+                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">P.C. (cm)</label>
+                                    <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Evolución / Notas clínicas</label>
+                                <textarea placeholder="Redactar evolución..." className="w-full p-3 border rounded-lg text-sm h-28 resize-none bg-white" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
+                            </div>
+                        </div>
+                        
+                        <div className="mt-4">
+                            <button type="button" onClick={() => setShowHistory(!showHistory)} className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-sky-600 transition-colors">Historial de consultas {showHistory ? '▲' : '▼'}</button>
+                            {showHistory && (
+                                <div className="mt-3 space-y-2 max-h-96 overflow-y-auto pr-1">
+                                    {formData.consultations?.length === 0 && <p className="text-xs text-slate-400 italic text-center py-4">No hay consultas registradas</p>}
+                                    {formData.consultations?.map(c => (
+                                        <div key={c.id} className="p-3 border rounded-xl bg-white text-xs shadow-sm border-slate-200">
+                                            {editingConsultationId === c.id ? (
+                                                <div className="space-y-3 animate-fade-in">
+                                                    <input type="date" className="p-2 border rounded-lg w-full" value={editData.dateStr} onChange={e => setEditData({...editData, dateStr: e.target.value})} />
+                                                    <TagInput label="Motivo" options={options.reasons} value={editData.motive} onChange={v => setEditData({...editData, motive: v})} />
+                                                    <div className="flex gap-2">
+                                                        <input placeholder="Peso" className="w-1/3 border p-2 rounded-lg text-center" value={editData.weight} onChange={e=>setEditData({...editData, weight: e.target.value})} />
+                                                        <input placeholder="Talla" className="w-1/3 border p-2 rounded-lg text-center" value={editData.height} onChange={e=>setEditData({...editData, height: e.target.value})} />
+                                                        <input placeholder="PC" className="w-1/3 border p-2 rounded-lg text-center" value={editData.headCircumference} onChange={e=>setEditData({...editData, headCircumference: e.target.value})} />
+                                                    </div>
+                                                    <textarea className="w-full border p-2 rounded-lg h-20" value={editData.notes} onChange={e=>setEditData({...editData, notes: e.target.value})} />
+                                                    <div className="flex gap-2">
+                                                        <Button variant="primary" className="flex-1 py-1" onClick={saveEdit}>Listo</Button>
+                                                        <Button variant="secondary" className="flex-1 py-1" onClick={() => setEditingConsultationId(null)}>Cerrar</Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="flex justify-between font-bold text-sky-600 mb-2">
+                                                        <span className="flex items-center gap-2">{formatDate(c.date)} <span className="bg-sky-50 text-[10px] px-2 py-0.5 rounded-full border border-sky-100">{calculateAgeAtDate(formData.birthDate, c.date)}</span></span>
+                                                        <div className="flex gap-2">
+                                                            <button type="button" onClick={() => startEdit(c)} className="text-sky-500 hover:bg-sky-50 p-1.5 rounded-full"><Edit size={14} /></button>
+                                                            <button type="button" onClick={() => askDeleteConsultation(c.id)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-full"><Trash2 size={14} /></button>
+                                                        </div>
+                                                    </div>
+                                                    <p className="font-semibold text-slate-800 mb-1">{c.motive?.join(', ') || 'Sin motivo especificado'}</p>
+                                                    {(c.weight || c.height || c.headCircumference) && (
+                                                        <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-2">
+                                                            {c.weight && `P: ${c.weight}kg `}{c.height && `| T: ${c.height}cm `}{c.headCircumference && `| PC: ${c.headCircumference}cm`}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-slate-600 italic whitespace-pre-wrap leading-relaxed bg-slate-50 p-2 rounded-lg">{c.notes || 'Sin notas de evolución'}</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    <Card className="photo-container shadow-md">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex gap-2 text-sky-800 font-bold uppercase text-xs tracking-wider"><FileUp size={18} /> Adjuntos / Fotos</div>
+                            <div className="flex gap-2">
+                                <label className="bg-sky-50 text-sky-600 p-2.5 rounded-xl cursor-pointer hover:bg-sky-100 transition-all shadow-sm" title="Galería">
+                                    <Plus size={20} />
+                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImage(e)} />
+                                </label>
+                                <label className="bg-sky-100 text-sky-700 p-2.5 rounded-xl cursor-pointer hover:bg-sky-200 transition-all shadow-sm" title="Tomar Foto">
+                                    <Camera size={20} />
+                                    <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => handleImage(e)} />
+                                </label>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            {(formData.images || []).map(img => (
+                                <div key={img.id} className="relative aspect-square rounded-xl border-2 border-slate-100 group bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                    <img 
+                                        src={img.src} 
+                                        onClick={() => setExpandedPhoto(img)}
+                                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => askDeletePhoto(img.id)} 
+                                        className="absolute top-1 right-1 bg-rose-500/90 text-white rounded-full p-1 shadow-lg z-10 backdrop-blur-sm"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                            {(formData.images?.length === 0) && (
+                                <div className="col-span-3 py-6 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs font-bold uppercase tracking-widest">
+                                    Sin archivos cargados
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    <Card className="bg-amber-50 border-amber-200 shadow-sm">
+                        <div className="flex gap-2 mb-3 text-amber-700 font-bold uppercase text-xs tracking-wider"><AlertCircle size={18} /> Pendientes de seguimiento</div>
+                        <div className="flex gap-2">
+                            <input className="flex-1 p-2.5 border border-amber-200 rounded-xl bg-white text-sm focus:ring-2 ring-amber-100 outline-none" value={newPending} placeholder="Ej: Traer carnet de vacunas..." onChange={e=>setNewPending(e.target.value)} />
+                            <Button variant="primary" className="!bg-amber-500 hover:!bg-amber-600 shadow-amber-500/20" onClick={()=>{ if(newPending.trim()){ updateField('pendingItems', [...(formData.pendingItems || []), {id:Date.now(), text:newPending}]); setNewPending(""); } }}><Plus size={20}/></Button>
+                        </div>
+                        <ul className="mt-3 space-y-2">
+                            {(formData.pendingItems || []).map(i => (
+                                <li key={i.id} className="flex justify-between items-center p-3 bg-white rounded-xl border border-amber-100 text-sm shadow-sm animate-fade-in">
+                                    <span className="text-slate-700">{i.text}</span>
+                                    <button type="button" onClick={()=>updateField('pendingItems', formData.pendingItems.filter(x=>x.id!==i.id))} className="text-emerald-500 hover:bg-emerald-50 p-1 rounded-full"><CheckCircle size={20}/></button>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex gap-4 md:static md:bg-transparent md:p-0 md:border-0 z-40">
+                        <Button variant="danger" className="flex-1 py-3" onClick={handleRequestCancel} disabled={isSavingLocal}>Cancelar</Button>
+                        <Button type="submit" className="flex-1 py-3" disabled={isSavingLocal}>{isSavingLocal ? "Procesando..." : "Guardar Ficha"}</Button>
                     </div>
+
+                    {/* Lightbox para fotos */}
+                    {expandedPhoto && (
+                        <div className="fixed inset-0 bg-black/95 z-[300] flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setExpandedPhoto(null)}>
+                            <button className="absolute top-6 right-6 text-white bg-white/20 p-3 rounded-full hover:bg-white/40 transition-colors">
+                                <X size={32} />
+                            </button>
+                            <img 
+                                src={expandedPhoto.src} 
+                                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-fade-in-up" 
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="mt-6 text-white font-bold tracking-widest text-sm bg-white/10 px-6 py-2 rounded-full backdrop-blur-md border border-white/20">
+                                {expandedPhoto.date}
+                            </div>
+                        </div>
+                    )}
                 </form>
             );
         };
