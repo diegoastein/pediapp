@@ -144,6 +144,10 @@
         const Maximize = (props) => <Icon {...props}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></Icon>;
         const Wifi = (props) => <Icon {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></Icon>;
         const Settings = (props) => <Icon {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>;
+        const ChevronLeft = (props) => <Icon {...props}><polyline points="15 18 9 12 15 6"/></Icon>;
+        const ChevronRight = (props) => <Icon {...props}><polyline points="9 18 15 12 9 6"/></Icon>;
+        const DollarSign = (props) => <Icon {...props}><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></Icon>;
+        const MapPin = (props) => <Icon {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -313,6 +317,7 @@
             const [isAppLoading, setIsAppLoading] = useState(true);
             const [sharePatientData, setSharePatientData] = useState(null);
             const [config, setConfig] = useState({ healthInsurances: [], plans: [] });
+            const [finanzas, setFinanzas] = useState({});
 
             const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
@@ -367,7 +372,12 @@
                     if (docSnap.exists()) setConfig(docSnap.data());
                 }, (err) => console.warn('[PediApp] Error config:', err));
 
-                return () => { unsubPatients(); unsubConfig(); };
+                const finanzasRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'finanzas');
+                const unsubFinanzas = onSnapshot(finanzasRef, (docSnap) => {
+                    if (docSnap.exists()) setFinanzas(docSnap.data());
+                }, (err) => console.warn('[PediApp] Error finanzas:', err));
+
+                return () => { unsubPatients(); unsubConfig(); unsubFinanzas(); };
             }, [user, firebaseReady]);
 
             const dynamicRepertoire = useMemo(() => {
@@ -432,6 +442,13 @@
                 if (!user || !db) return;
                 const configRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'lists');
                 setDoc(configRef, newConfig);
+            };
+
+            const handleSaveFinanzas = (newFinanzas) => {
+                const { db, appId, doc, setDoc } = window.firebaseData;
+                if (!user || !db) return;
+                const finanzasRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'finanzas');
+                setDoc(finanzasRef, newFinanzas);
             };
 
             const askConfirmDeletePatient = (e, p) => {
@@ -514,7 +531,7 @@
                             }
                         </div>
                         <div className="flex items-center gap-2">
-                            {view !== 'settings' && <button onClick={() => setView('settings')} className="text-slate-400 hover:text-sky-500 p-2 transition-colors"><Settings size={20} /></button>}
+                            {view !== 'settings' && view !== 'finanzas' && <button onClick={() => setView('settings')} className="text-slate-400 hover:text-sky-500 p-2 transition-colors"><Settings size={20} /></button>}
                             {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2 transition-colors"><LogOut size={20} /></button>}
                         </div>
                     </header>
@@ -588,6 +605,15 @@
                                 config={config}
                                 onSave={handleSaveConfig}
                                 onBack={() => setView('list')}
+                                onOpenFinanzas={() => setView('finanzas')}
+                            />
+                        )}
+
+                        {view === 'finanzas' && (
+                            <FinanzasView
+                                finanzas={finanzas}
+                                onSave={handleSaveFinanzas}
+                                onBack={() => setView('settings')}
                             />
                         )}
                     </main>
@@ -602,7 +628,7 @@
             );
         };
 
-        const SettingsView = ({ config, onSave, onBack }) => {
+        const SettingsView = ({ config, onSave, onBack, onOpenFinanzas }) => {
             const [localConfig, setLocalConfig] = useState(config);
 
             const handleUpdateList = (type, newList) => {
@@ -625,6 +651,180 @@
                             <ListManager title="Planes" items={localConfig.plans || []} onUpdate={(list) => handleUpdateList('plans', list)} />
                         </div>
                     </Card>
+
+                    <Card className="cursor-pointer hover:border-sky-300 hover:shadow-md transition-all active:scale-[0.98]" onClick={onOpenFinanzas}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex gap-2 text-sky-800 font-bold uppercase text-xs tracking-wider"><DollarSign size={18} /> Registro de Finanzas</div>
+                            <ChevronRight size={16} className="text-slate-400" />
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2 italic">Ingresos y egresos por consultorio, mes a mes.</p>
+                    </Card>
+                </div>
+            );
+        };
+
+        const CONSULTORIOS = [
+            { key: 'ramos', label: 'Ramos' },
+            { key: 'sanMartin', label: 'San Martín' },
+            { key: 'wenceslao', label: 'Wenceslao de Tata' },
+        ];
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+        const FinanzasView = ({ finanzas, onSave, onBack }) => {
+            const now = new Date();
+            const [year, setYear] = useState(now.getFullYear());
+            const [month, setMonth] = useState(now.getMonth());
+            const [localFinanzas, setLocalFinanzas] = useState(finanzas);
+
+            useEffect(() => { setLocalFinanzas(finanzas); }, [finanzas]);
+
+            const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+            const monthData = localFinanzas[monthKey] || {};
+
+            const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+            const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+
+            const handleChange = (consultorio, field, value) => {
+                const updated = {
+                    ...localFinanzas,
+                    [monthKey]: {
+                        ...localFinanzas[monthKey],
+                        [consultorio]: { ...(localFinanzas[monthKey]?.[consultorio] || {}), [field]: value }
+                    }
+                };
+                setLocalFinanzas(updated);
+                onSave(updated);
+            };
+
+            const getVal = (c, f) => monthData[c]?.[f] || '';
+
+            const getTotals = (c, data) => {
+                const d = (data || monthData)[c] || {};
+                const ing = (parseFloat(d.obraSocial) || 0) + (parseFloat(d.particular) || 0);
+                const egr = parseFloat(d.alquiler) || 0;
+                return { ingresos: ing, egresos: egr, resultado: ing - egr };
+            };
+
+            const monthTotals = CONSULTORIOS.reduce((acc, { key }) => {
+                const t = getTotals(key);
+                return { ingresos: acc.ingresos + t.ingresos, egresos: acc.egresos + t.egresos, resultado: acc.resultado + t.resultado };
+            }, { ingresos: 0, egresos: 0, resultado: 0 });
+
+            const fmt = (n) => {
+                if (n === 0) return '-';
+                const abs = Math.abs(n).toLocaleString('es-AR');
+                return n < 0 ? `-$${abs}` : `$${abs}`;
+            };
+
+            const allMonths = Object.keys(localFinanzas).sort().reverse();
+
+            return (
+                <div className="space-y-6 animate-fade-in-up pb-8">
+                    <div className="mb-4">
+                        <Button variant="secondary" onClick={onBack} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>
+                    </div>
+
+                    {/* Selector de mes */}
+                    <div className="flex items-center justify-between bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+                        <button onClick={prevMonth} className="p-2 text-slate-400 hover:text-sky-500 transition-colors"><ChevronLeft size={20}/></button>
+                        <span className="font-bold text-slate-700">{MESES[month]} {year}</span>
+                        <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-sky-500 transition-colors"><ChevronRight size={20}/></button>
+                    </div>
+
+                    {/* Cards por consultorio */}
+                    {CONSULTORIOS.map(({ key, label }) => {
+                        const t = getTotals(key);
+                        return (
+                            <Card key={key} className="border-l-4 border-sky-400 shadow-sm">
+                                <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><MapPin size={16}/> {label}</div>
+                                <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                                    <div className="flex flex-col gap-1 col-span-2">
+                                        <label className="text-[10px] font-bold text-rose-400 uppercase">Alquiler (egreso)</label>
+                                        <input type="number" placeholder="0" className="p-2 border border-rose-100 rounded-lg bg-rose-50/30 focus:bg-white focus:border-rose-300 outline-none"
+                                            value={getVal(key, 'alquiler')} onChange={e => handleChange(key, 'alquiler', e.target.value)} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-bold text-emerald-600 uppercase">Obra Social</label>
+                                        <input type="number" placeholder="0" className="p-2 border border-emerald-100 rounded-lg bg-emerald-50/30 focus:bg-white focus:border-emerald-300 outline-none"
+                                            value={getVal(key, 'obraSocial')} onChange={e => handleChange(key, 'obraSocial', e.target.value)} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-bold text-emerald-600 uppercase">Particular</label>
+                                        <input type="number" placeholder="0" className="p-2 border border-emerald-100 rounded-lg bg-emerald-50/30 focus:bg-white focus:border-emerald-300 outline-none"
+                                            value={getVal(key, 'particular')} onChange={e => handleChange(key, 'particular', e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="border-t pt-3 grid grid-cols-3 gap-1 text-xs">
+                                    <div className="text-center bg-emerald-50 rounded-lg p-2">
+                                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Ingresos</p>
+                                        <p className="font-bold text-emerald-600">{fmt(t.ingresos)}</p>
+                                    </div>
+                                    <div className="text-center bg-rose-50 rounded-lg p-2">
+                                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Egresos</p>
+                                        <p className="font-bold text-rose-500">{fmt(t.egresos)}</p>
+                                    </div>
+                                    <div className={`text-center rounded-lg p-2 ${t.resultado >= 0 ? 'bg-sky-50' : 'bg-orange-50'}`}>
+                                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Resultado</p>
+                                        <p className={`font-bold ${t.resultado >= 0 ? 'text-sky-600' : 'text-orange-500'}`}>{fmt(t.resultado)}</p>
+                                    </div>
+                                </div>
+                            </Card>
+                        );
+                    })}
+
+                    {/* Total del mes */}
+                    <Card className="bg-slate-800 text-white border-0 shadow-xl">
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-3 text-slate-400">Total {MESES[month]} {year}</div>
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="text-center">
+                                <p className="text-slate-400 text-[9px] uppercase font-bold mb-1">Ingresos</p>
+                                <p className="font-bold text-emerald-400 text-base">{fmt(monthTotals.ingresos)}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-slate-400 text-[9px] uppercase font-bold mb-1">Egresos</p>
+                                <p className="font-bold text-rose-400 text-base">{fmt(monthTotals.egresos)}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-slate-400 text-[9px] uppercase font-bold mb-1">Resultado</p>
+                                <p className={`font-bold text-base ${monthTotals.resultado >= 0 ? 'text-sky-300' : 'text-orange-400'}`}>{fmt(monthTotals.resultado)}</p>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Resumen mes a mes */}
+                    {allMonths.length > 0 && (
+                        <Card>
+                            <div className="text-xs font-bold uppercase tracking-wider mb-3 text-slate-600">Resumen mensual</div>
+                            <div className="flex items-center justify-between px-1 pb-2 mb-1 border-b text-[9px] text-slate-400 font-bold uppercase">
+                                <span className="flex-1">Mes</span>
+                                <span className="w-16 text-right">Ingresos</span>
+                                <span className="w-16 text-right">Egresos</span>
+                                <span className="w-16 text-right">Resultado</span>
+                            </div>
+                            <div className="space-y-0.5 max-h-60 overflow-y-auto hide-scrollbar">
+                                {allMonths.map(mk => {
+                                    const [y, m] = mk.split('-');
+                                    const mData = localFinanzas[mk] || {};
+                                    const t = CONSULTORIOS.reduce((acc, { key }) => {
+                                        const d = mData[key] || {};
+                                        const ing = (parseFloat(d.obraSocial)||0) + (parseFloat(d.particular)||0);
+                                        const egr = parseFloat(d.alquiler)||0;
+                                        return { ingresos: acc.ingresos+ing, egresos: acc.egresos+egr, resultado: acc.resultado+ing-egr };
+                                    }, { ingresos: 0, egresos: 0, resultado: 0 });
+                                    const isActive = mk === monthKey;
+                                    return (
+                                        <div key={mk} onClick={() => { setYear(parseInt(y)); setMonth(parseInt(m)-1); }}
+                                            className={`flex items-center justify-between px-1 py-2 rounded-lg text-xs cursor-pointer transition-colors ${isActive ? 'bg-sky-50 border border-sky-200' : 'hover:bg-slate-50'}`}>
+                                            <span className={`flex-1 font-bold ${isActive ? 'text-sky-700' : 'text-slate-700'}`}>{MESES[parseInt(m)-1].substring(0,3)} {y}</span>
+                                            <span className="w-16 text-right text-emerald-600 font-medium">{fmt(t.ingresos)}</span>
+                                            <span className="w-16 text-right text-rose-500 font-medium">{fmt(t.egresos)}</span>
+                                            <span className={`w-16 text-right font-bold ${t.resultado >= 0 ? 'text-sky-600' : 'text-orange-500'}`}>{fmt(t.resultado)}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+                    )}
                 </div>
             );
         };
