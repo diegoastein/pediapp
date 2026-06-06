@@ -79,7 +79,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCfBgsLgnDGkkE_u0ZhXJs8SCczP531dg4",
@@ -108,7 +108,7 @@
 
         window.firebaseData = { 
             auth, db, appId, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp 
+            collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, serverTimestamp
         };
 
         // Disparamos un evento custom para que React sepa que Firebase está listo
@@ -143,6 +143,7 @@
         const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Icon>;
         const Maximize = (props) => <Icon {...props}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></Icon>;
         const Wifi = (props) => <Icon {...props}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></Icon>;
+        const Settings = (props) => <Icon {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -195,6 +196,8 @@
         function generatePatientSummary(patient) {
             const age = calculateAge(patient.birthDate);
             let summary = `--- Historia Clínica: ${patient.lastName}, ${patient.firstName} ---\nDNI: ${patient.dni}\n`;
+            if (patient.healthInsurance) summary += `Obra Social: ${patient.healthInsurance}${patient.plan ? ` (${patient.plan})` : ''}\n`;
+            if (patient.memberNumber) summary += `Afiliado: ${patient.memberNumber}\n`;
             if (patient.phone) summary += `Tel: ${patient.phone}\n`;
             summary += `F. Nac: ${patient.birthDate} (${age})\n\n`;
             summary += `ANTECEDENTES NEONATALES:\n- ${patient.neonatalHistory?.join('\n- ') || 'Ninguno'}\n\n`;
@@ -309,7 +312,8 @@
             const [searchTerm, setSearchTerm] = useState("");
             const [isAppLoading, setIsAppLoading] = useState(true);
             const [sharePatientData, setSharePatientData] = useState(null);
-            
+            const [config, setConfig] = useState({ healthInsurances: [], plans: [] });
+
             const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
             const fileInputRef = useRef(null);
@@ -347,32 +351,46 @@
             }, [firebaseReady]);
 
             useEffect(() => {
-                if (!user) { setPatients([]); return; }
-                const { db, appId, collection, onSnapshot } = window.firebaseData;
+                if (!user || !firebaseReady) return;
+                const { db, appId, collection, onSnapshot, doc } = window.firebaseData;
                 if (!db) return;
+
                 const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
-                return onSnapshot(colRef, (snapshot) => {
+                const unsubPatients = onSnapshot(colRef, (snapshot) => {
                     const loaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     loaded.sort((a, b) => (b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (b.updatedAt || 0)) - (a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (a.updatedAt || 0)));
                     setPatients(loaded);
-                }, (error) => {
-                    // En modo offline con cache, esto puede fallar en la red pero Firestore
-                    // entrega datos locales igualmente — no es un error real
-                    console.warn('[PediApp] Firestore snapshot error (probablemente offline):', error.code);
-                });
+                }, (error) => console.warn('[PediApp] Error pacientes:', error.code));
+
+                const configRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'lists');
+                const unsubConfig = onSnapshot(configRef, (docSnap) => {
+                    if (docSnap.exists()) setConfig(docSnap.data());
+                }, (err) => console.warn('[PediApp] Error config:', err));
+
+                return () => { unsubPatients(); unsubConfig(); };
             }, [user, firebaseReady]);
 
             const dynamicRepertoire = useMemo(() => {
                 const neonatal = new Set(["Prematuro", "Sano"]);
                 const pathological = new Set(["Asma", "Alergia"]);
                 const reasons = new Set(["Control", "Fiebre"]);
+                const healthInsurances = new Set(config.healthInsurances || []);
+                const plans = new Set(config.plans || []);
                 patients.forEach(p => {
                     p.neonatalHistory?.forEach(v => neonatal.add(v));
                     p.pathologicalHistory?.forEach(v => pathological.add(v));
                     p.consultations?.forEach(c => c.motive?.forEach(v => reasons.add(v)));
+                    if (p.healthInsurance) healthInsurances.add(p.healthInsurance);
+                    if (p.plan) plans.add(p.plan);
                 });
-                return { neonatal: Array.from(neonatal).sort(), pathological: Array.from(pathological).sort(), reasons: Array.from(reasons).sort() };
-            }, [patients]);
+                return {
+                    neonatal: Array.from(neonatal).sort(),
+                    pathological: Array.from(pathological).sort(),
+                    reasons: Array.from(reasons).sort(),
+                    healthInsurances: Array.from(healthInsurances).sort(),
+                    plans: Array.from(plans).sort()
+                };
+            }, [patients, config]);
 
             const handleAuth = async (e) => {
                 e.preventDefault(); setAuthError(''); setIsAppLoading(true);
@@ -407,6 +425,13 @@
                 } catch (e) {
                     alert("Error al procesar: " + e.message);
                 }
+            };
+
+            const handleSaveConfig = (newConfig) => {
+                const { db, appId, doc, setDoc } = window.firebaseData;
+                if (!user || !db) return;
+                const configRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'lists');
+                setDoc(configRef, newConfig);
             };
 
             const askConfirmDeletePatient = (e, p) => {
@@ -489,12 +514,13 @@
                             }
                         </div>
                         <div className="flex items-center gap-2">
+                            {view !== 'settings' && <button onClick={() => setView('settings')} className="text-slate-400 hover:text-sky-500 p-2 transition-colors"><Settings size={20} /></button>}
                             {view === 'list' && <button onClick={() => signOut(auth)} className="text-slate-400 hover:text-rose-500 p-2 transition-colors"><LogOut size={20} /></button>}
                         </div>
                     </header>
 
                     <main className="p-4">
-                        {view === 'list' ? (
+                        {view === 'list' && (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
                                     <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente por nombre o DNI..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
@@ -533,6 +559,7 @@
                                                 </div>
                                                 <div className="mt-1 space-y-0.5 text-xs">
                                                     <p className="text-slate-500"><span className="font-bold text-slate-400">DNI:</span> {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
+                                                    {(p.healthInsurance || p.plan) && <p className="text-slate-500"><span className="font-bold text-sky-600">OS:</span> {p.healthInsurance || 'N/A'} {p.plan ? `(${p.plan})` : ''}</p>}
                                                     {p.phone && <p className="text-sky-600 font-medium flex items-center gap-1"><Phone size={10} /> {p.phone}</p>}
                                                 </div>
                                             </div>
@@ -544,13 +571,23 @@
                                     ))}
                                 </div>
                             </div>
-                        ) : (
-                            <PatientForm 
-                                initialData={currentPatient} 
-                                onSave={handleSave} 
-                                onCancel={() => {setView("list"); setCurrentPatient(null);}} 
-                                options={dynamicRepertoire} 
+                        )}
+
+                        {view === 'form' && (
+                            <PatientForm
+                                initialData={currentPatient}
+                                onSave={handleSave}
+                                onCancel={() => {setView("list"); setCurrentPatient(null);}}
+                                options={dynamicRepertoire}
                                 setConfirmState={setConfirmState}
+                            />
+                        )}
+
+                        {view === 'settings' && (
+                            <SettingsView
+                                config={config}
+                                onSave={handleSaveConfig}
+                                onBack={() => setView('list')}
                             />
                         )}
                     </main>
@@ -565,8 +602,89 @@
             );
         };
 
+        const SettingsView = ({ config, onSave, onBack }) => {
+            const [localConfig, setLocalConfig] = useState(config);
+
+            const handleUpdateList = (type, newList) => {
+                const updated = { ...localConfig, [type]: newList.sort() };
+                setLocalConfig(updated);
+                onSave(updated);
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in-up">
+                    <div className="mb-4">
+                        <Button variant="secondary" onClick={onBack} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>
+                    </div>
+                    <Card className="border-l-4 border-sky-500 shadow-lg">
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Settings size={18} /> Configuración de Listas</div>
+                        <p className="text-xs text-slate-500 mb-6 italic">Agrega o elimina opciones para que aparezcan en los menús desplegables al crear fichas.</p>
+                        <div className="space-y-8">
+                            <ListManager title="Obras Sociales / Prepagas" items={localConfig.healthInsurances || []} onUpdate={(list) => handleUpdateList('healthInsurances', list)} />
+                            <div className="h-px bg-slate-100" />
+                            <ListManager title="Planes" items={localConfig.plans || []} onUpdate={(list) => handleUpdateList('plans', list)} />
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+
+        const ListManager = ({ title, items, onUpdate }) => {
+            const [newVal, setNewVal] = useState("");
+            const [editingIndex, setEditingIndex] = useState(null);
+            const [editVal, setEditVal] = useState("");
+
+            const handleAdd = () => {
+                if (newVal.trim() && !items.includes(newVal.trim())) {
+                    onUpdate([...items, newVal.trim()]);
+                    setNewVal("");
+                }
+            };
+
+            const handleDelete = (val) => { onUpdate(items.filter(i => i !== val)); };
+
+            const startEdit = (idx, val) => { setEditingIndex(idx); setEditVal(val); };
+
+            const saveEdit = () => {
+                if (editVal.trim()) {
+                    const newList = [...items];
+                    newList[editingIndex] = editVal.trim();
+                    onUpdate(newList);
+                }
+                setEditingIndex(null);
+            };
+
+            return (
+                <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-700 uppercase">{title}</label>
+                    <div className="flex gap-2">
+                        <input className="flex-1 p-2 border rounded-lg text-sm bg-slate-50 focus:bg-white" placeholder="Nueva opción..." value={newVal} onChange={e => setNewVal(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAdd()} />
+                        <Button onClick={handleAdd} className="py-2"><Plus size={18}/></Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No hay opciones configuradas</p>}
+                        {items.map((item, idx) => (
+                            <div key={idx} className="bg-white border border-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 hover:border-sky-300">
+                                {editingIndex === idx ? (
+                                    <input className="outline-none w-20" autoFocus value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={saveEdit} onKeyPress={e => e.key === 'Enter' && saveEdit()} />
+                                ) : (
+                                    <>
+                                        <span>{item}</span>
+                                        <div className="flex gap-1">
+                                            <button type="button" onClick={() => startEdit(idx, item)} className="text-slate-300 hover:text-sky-500"><Edit size={10}/></button>
+                                            <button type="button" onClick={() => handleDelete(item)} className="text-slate-300 hover:text-rose-500"><X size={10}/></button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
         const PatientForm = ({ initialData, onSave, onCancel, options, setConfirmState }) => {
-            const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] });
+            const [formData, setFormData] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', phone: '', healthInsurance: '', plan: '', memberNumber: '', neonatalHistory: [], pathologicalHistory: [], pendingItems: [], consultations: [], images: [] });
             const [newConsultation, setnewConsultation] = useState({ date: new Date().toLocaleDateString('en-CA'), motive: [], weight: '', height: '', headCircumference: '', notes: '' });
             const [newPending, setNewPending] = useState("");
             const [showHistory, setShowHistory] = useState(false);
@@ -693,6 +811,20 @@
                             <div className="flex flex-col gap-1">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">F. Nacimiento</label>
                                 <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Obra Social / Prepaga</label>
+                                <input placeholder="Ej: OSDE" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.healthInsurance || ''} onChange={e => updateField('healthInsurance', e.target.value)} list="healthInsurances-list" />
+                                <datalist id="healthInsurances-list">{options.healthInsurances?.map(opt => <option key={opt} value={opt} />)}</datalist>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Plan</label>
+                                <input placeholder="Ej: 210" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.plan || ''} onChange={e => updateField('plan', e.target.value)} list="plans-list" />
+                                <datalist id="plans-list">{options.plans?.map(opt => <option key={opt} value={opt} />)}</datalist>
+                            </div>
+                            <div className="flex flex-col gap-1 col-span-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nro de Afiliado</label>
+                                <input placeholder="Nro Afiliado" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.memberNumber || ''} onChange={e => updateField('memberNumber', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1 col-span-2">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Teléfono de contacto</label>
