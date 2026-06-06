@@ -2,7 +2,7 @@
 // Ubicación esperada: https://usuario.github.io/pediapp/sw.js
 // El scope se define automáticamente como /pediapp/ por estar en esa carpeta
 
-const CACHE_NAME = "pediapp-v5";
+const CACHE_NAME = "pediapp-v6";
 const BASE = "/pediapp";
 
 // Shell de la app — rutas absolutas obligatorias para GitHub Pages
