@@ -45,9 +45,20 @@
         .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
 
         /* Tamaños de texto en rem para que respondan al selector de tamaño de fuente
-           (los tamaños arbitrarios en px de Tailwind, ej. text-2xs, no escalan). */
+           (los tamaños arbitrarios en px de Tailwind, ej. text-[10px], no escalan). */
         .text-3xs { font-size: 0.5625rem; line-height: 0.75rem; }
         .text-2xs { font-size: 0.625rem; line-height: 0.875rem; }
+
+        /* ---- Modo día: más contraste ----
+           Oscurecemos un escalón los grises de texto más usados para que se lean
+           mejor sobre fondo claro (no afecta al modo oscuro, que tiene su propio
+           bloque de reglas más abajo). */
+        html:not(.dark) .text-slate-800 { color: #0f172a !important; }
+        html:not(.dark) .text-slate-700 { color: #1e293b !important; }
+        html:not(.dark) .text-slate-600 { color: #334155 !important; }
+        html:not(.dark) .text-slate-500 { color: #475569 !important; }
+        html:not(.dark) .text-slate-400 { color: #64748b !important; }
+        html:not(.dark) .text-slate-300 { color: #94a3b8 !important; }
 
         /* ---- Modo oscuro ----
            Tailwind se carga vía CDN sin variantes dark: en el markup, así que
