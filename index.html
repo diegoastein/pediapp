@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <script>
+        // Aplicar tema y tamaño de fuente ANTES del primer render para evitar parpadeos.
+        (function () {
+            try {
+                var theme = localStorage.getItem('pediapp-theme') || 'system';
+                var fontSize = localStorage.getItem('pediapp-fontsize') || 'md';
+                var scales = { sm: '100%', md: '112%', lg: '125%', xl: '140%' };
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+                if (isDark) document.documentElement.classList.add('dark');
+                document.documentElement.style.fontSize = scales[fontSize] || scales.md;
+            } catch (e) {}
+        })();
+    </script>
     <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,6 +43,72 @@
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
         .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
+
+        /* Tamaños de texto en rem para que respondan al selector de tamaño de fuente
+           (los tamaños arbitrarios en px de Tailwind, ej. text-2xs, no escalan). */
+        .text-3xs { font-size: 0.5625rem; line-height: 0.75rem; }
+        .text-2xs { font-size: 0.625rem; line-height: 0.875rem; }
+
+        /* ---- Modo oscuro ----
+           Tailwind se carga vía CDN sin variantes dark: en el markup, así que
+           sobreescribimos las clases utilitarias más usadas cuando <html> tiene
+           la clase "dark" (activada desde Configuración o por preferencia del sistema). */
+        html.dark body { background-color: #0f172a; color: #e2e8f0; }
+        html.dark ::placeholder { color: #94a3b8; }
+
+        html.dark .bg-white { background-color: #1e293b !important; }
+        html.dark .bg-white\/80 { background-color: rgba(30, 41, 59, 0.85) !important; }
+        html.dark .bg-slate-50 { background-color: #0f172a !important; }
+        html.dark .bg-slate-100 { background-color: #334155 !important; }
+        html.dark .bg-slate-200 { background-color: #334155 !important; }
+        html.dark .hover\:bg-slate-50:hover { background-color: #1e293b !important; }
+        html.dark .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+        html.dark .hover\:bg-slate-200:hover { background-color: #475569 !important; }
+
+        html.dark .border,
+        html.dark .border-b,
+        html.dark .border-t { border-color: #334155; }
+        html.dark .border-slate-100 { border-color: #334155 !important; }
+        html.dark .border-slate-200 { border-color: #475569 !important; }
+
+        html.dark .text-slate-800 { color: #f1f5f9 !important; }
+        html.dark .text-slate-700 { color: #e2e8f0 !important; }
+        html.dark .text-slate-600 { color: #cbd5e1 !important; }
+        html.dark .text-slate-500 { color: #94a3b8 !important; }
+
+        html.dark .text-sky-600 { color: #38bdf8 !important; }
+        html.dark .text-sky-700,
+        html.dark .text-sky-800 { color: #7dd3fc !important; }
+        html.dark .text-rose-600 { color: #fb7185 !important; }
+        html.dark .text-emerald-600 { color: #34d399 !important; }
+        html.dark .text-amber-600,
+        html.dark .text-amber-700 { color: #fbbf24 !important; }
+        html.dark .text-orange-500 { color: #fb923c !important; }
+
+        html.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12) !important; }
+        html.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.22) !important; }
+        html.dark .bg-rose-50,
+        html.dark .bg-rose-50\/30 { background-color: rgba(244, 63, 94, 0.12) !important; }
+        html.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.22) !important; }
+        html.dark .bg-emerald-50,
+        html.dark .bg-emerald-50\/30 { background-color: rgba(16, 185, 129, 0.12) !important; }
+        html.dark .bg-sky-50,
+        html.dark .bg-sky-50\/50 { background-color: rgba(14, 165, 233, 0.12) !important; }
+        html.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.22) !important; }
+        html.dark .bg-sky-200 { background-color: rgba(14, 165, 233, 0.3) !important; }
+        html.dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.12) !important; }
+        html.dark .hover\:bg-sky-50:hover { background-color: rgba(14, 165, 233, 0.18) !important; }
+        html.dark .hover\:bg-rose-50:hover { background-color: rgba(244, 63, 94, 0.18) !important; }
+        html.dark .hover\:bg-emerald-50:hover { background-color: rgba(16, 185, 129, 0.18) !important; }
+
+        html.dark .border-amber-100 { border-color: rgba(245, 158, 11, 0.3) !important; }
+        html.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.4) !important; }
+        html.dark .border-emerald-100 { border-color: rgba(16, 185, 129, 0.3) !important; }
+        html.dark .border-rose-100 { border-color: rgba(244, 63, 94, 0.3) !important; }
+        html.dark .border-rose-200 { border-color: rgba(244, 63, 94, 0.4) !important; }
+        html.dark .border-sky-100,
+        html.dark .border-sky-100\/50 { border-color: rgba(14, 165, 233, 0.3) !important; }
+        html.dark .border-sky-200 { border-color: rgba(14, 165, 233, 0.4) !important; }
     </style>
 </head>
 <body>
@@ -148,6 +228,9 @@
         const ChevronRight = (props) => <Icon {...props}><polyline points="9 18 15 12 9 6"/></Icon>;
         const DollarSign = (props) => <Icon {...props}><line x1="12" x2="12" y1="1" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></Icon>;
         const MapPin = (props) => <Icon {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Icon>;
+        const Sun = (props) => <Icon {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></Icon>;
+        const Moon = (props) => <Icon {...props}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></Icon>;
+        const Monitor = (props) => <Icon {...props}><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></Icon>;
 
         // --- Helpers ---
         function calculateAge(birthDate) {
@@ -318,10 +401,41 @@
             const [sharePatientData, setSharePatientData] = useState(null);
             const [config, setConfig] = useState({ healthInsurances: [], plans: [] });
             const [finanzas, setFinanzas] = useState({});
+            const [theme, setThemeState] = useState(() => { try { return localStorage.getItem('pediapp-theme') || 'system'; } catch (e) { return 'system'; } });
+            const [fontSize, setFontSizeState] = useState(() => { try { return localStorage.getItem('pediapp-fontsize') || 'md'; } catch (e) { return 'md'; } });
 
             const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
             const fileInputRef = useRef(null);
+
+            const setTheme = (value) => {
+                setThemeState(value);
+                try { localStorage.setItem('pediapp-theme', value); } catch (e) {}
+            };
+            const setFontSize = (value) => {
+                setFontSizeState(value);
+                try { localStorage.setItem('pediapp-fontsize', value); } catch (e) {}
+            };
+
+            // Aplicar el tema (y seguir la preferencia del sistema cuando corresponde)
+            useEffect(() => {
+                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                const applyTheme = () => {
+                    const isDark = theme === 'dark' || (theme === 'system' && mediaQuery.matches);
+                    document.documentElement.classList.toggle('dark', isDark);
+                };
+                applyTheme();
+                if (theme === 'system') {
+                    mediaQuery.addEventListener('change', applyTheme);
+                    return () => mediaQuery.removeEventListener('change', applyTheme);
+                }
+            }, [theme]);
+
+            // Aplicar el tamaño de fuente global (escala el html en rem para toda la app)
+            useEffect(() => {
+                const scales = { sm: '100%', md: '112%', lg: '125%', xl: '140%' };
+                document.documentElement.style.fontSize = scales[fontSize] || scales.md;
+            }, [fontSize]);
 
             // Esperar a que Firebase esté listo (puede llegar tarde si el módulo carga lento)
             useEffect(() => {
@@ -516,7 +630,7 @@
                     
                     {/* Banner de estado de conexión */}
                     {!isOnline && (
-                        <div className="bg-amber-500 text-white text-[10px] text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2">
+                        <div className="bg-amber-500 text-white text-2xs text-center py-1 font-bold sticky top-0 z-50 flex items-center justify-center gap-2">
                             <WifiOff size={12} /> MODO OFFLINE — Los cambios se sincronizarán al reconectar
                         </div>
                     )}
@@ -542,7 +656,7 @@
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
                                     <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} /><input type="text" placeholder="Buscar paciente por nombre o DNI..." className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg outline-none focus:ring-2 ring-sky-100 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
                                     <Button onClick={() => { setCurrentPatient(null); setView('form'); }} className="w-full py-3"><Plus size={20} /> Nuevo Paciente</Button>
-                                    <div className="flex gap-2 text-[10px]">
+                                    <div className="flex gap-2 text-2xs">
                                         <Button variant="secondary" className="flex-1 py-1" onClick={() => downloadBackup(buildBackupData(patients))}>Exportar Historial</Button>
                                         <Button variant="secondary" className="flex-1 py-1" onClick={() => fileInputRef.current.click()}>Importar Datos</Button>
                                         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
@@ -562,8 +676,8 @@
                                 <div className="space-y-3">
                                     <div className="px-1 py-1 bg-sky-50/50 rounded-lg border border-sky-100/50">
                                         <div className="flex flex-wrap justify-between items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nro total de paciente = {patients.length}</span>
-                                            {!searchTerm && patients.length > 10 && <span className="text-[10px] text-sky-600/70 font-bold italic uppercase tracking-tighter">Se muestran los ultimos diez pacientes ingresados</span>}
+                                            <span className="text-2xs font-bold text-slate-600 uppercase tracking-wide">Nro total de paciente = {patients.length}</span>
+                                            {!searchTerm && patients.length > 10 && <span className="text-2xs text-sky-600/70 font-bold italic uppercase tracking-tighter">Se muestran los ultimos diez pacientes ingresados</span>}
                                         </div>
                                     </div>
 
@@ -572,11 +686,11 @@
                                             <div className="pr-16">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <h3 className="font-bold text-slate-800 leading-tight">{p.lastName}, {p.firstName}</h3>
-                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase"><AlertCircle size={10} /> {p.pendingItems.length} pendientes</span>}
+                                                    {p.pendingItems?.length > 0 && <span className="bg-amber-100 text-amber-700 text-3xs px-1.5 py-0.5 rounded-full font-extrabold flex items-center gap-1 uppercase"><AlertCircle size={10} /> {p.pendingItems.length} pendientes</span>}
                                                 </div>
                                                 <div className="mt-1 space-y-0.5 text-xs">
-                                                    <p className="text-slate-500"><span className="font-bold text-slate-400">DNI:</span> {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
-                                                    {(p.healthInsurance || p.plan) && <p className="text-slate-500"><span className="font-bold text-sky-600">OS:</span> {p.healthInsurance || 'N/A'} {p.plan ? `(${p.plan})` : ''}</p>}
+                                                    <p className="text-slate-600"><span className="font-bold text-slate-500">DNI:</span> {p.dni} <span className="mx-1">•</span> {calculateAge(p.birthDate)}</p>
+                                                    {(p.healthInsurance || p.plan) && <p className="text-slate-600"><span className="font-bold text-sky-600">OS:</span> {p.healthInsurance || 'N/A'} {p.plan ? `(${p.plan})` : ''}</p>}
                                                     {p.phone && <p className="text-sky-600 font-medium flex items-center gap-1"><Phone size={10} /> {p.phone}</p>}
                                                 </div>
                                             </div>
@@ -606,6 +720,10 @@
                                 onSave={handleSaveConfig}
                                 onBack={() => setView('list')}
                                 onOpenFinanzas={() => setView('finanzas')}
+                                theme={theme}
+                                setTheme={setTheme}
+                                fontSize={fontSize}
+                                setFontSize={setFontSize}
                             />
                         )}
 
@@ -628,7 +746,19 @@
             );
         };
 
-        const SettingsView = ({ config, onSave, onBack, onOpenFinanzas }) => {
+        const THEME_OPTIONS = [
+            { value: 'light', label: 'Día', icon: Sun },
+            { value: 'dark', label: 'Noche', icon: Moon },
+            { value: 'system', label: 'Sistema', icon: Monitor },
+        ];
+        const FONT_SIZE_OPTIONS = [
+            { value: 'sm', label: 'Pequeño', preview: 14 },
+            { value: 'md', label: 'Mediano', preview: 17 },
+            { value: 'lg', label: 'Grande', preview: 20 },
+            { value: 'xl', label: 'Muy grande', preview: 23 },
+        ];
+
+        const SettingsView = ({ config, onSave, onBack, onOpenFinanzas, theme, setTheme, fontSize, setFontSize }) => {
             const [localConfig, setLocalConfig] = useState(config);
 
             const handleUpdateList = (type, newList) => {
@@ -642,6 +772,38 @@
                     <div className="mb-4">
                         <Button variant="secondary" onClick={onBack} className="text-xs py-1"><ArrowLeft size={16} /> Volver</Button>
                     </div>
+
+                    <Card className="border-l-4 border-sky-500 shadow-lg">
+                        <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Sun size={18} /> Apariencia y Accesibilidad</div>
+                        <div className="space-y-6">
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 uppercase block mb-2">Tema</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {THEME_OPTIONS.map(opt => (
+                                        <button key={opt.value} type="button" onClick={() => setTheme(opt.value)}
+                                            className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${theme === opt.value ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-500 hover:border-sky-300'}`}>
+                                            <opt.icon size={20} />
+                                            <span className="text-xs font-bold">{opt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 uppercase block mb-2">Tamaño de texto</label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {FONT_SIZE_OPTIONS.map(opt => (
+                                        <button key={opt.value} type="button" onClick={() => setFontSize(opt.value)}
+                                            className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${fontSize === opt.value ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-500 hover:border-sky-300'}`}>
+                                            <span className="font-extrabold leading-none" style={{ fontSize: opt.preview }}>A</span>
+                                            <span className="text-3xs font-bold uppercase leading-tight text-center">{opt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-2xs text-slate-500 mt-2 italic">Ajusta el tamaño de todo el texto de la aplicación.</p>
+                            </div>
+                        </div>
+                    </Card>
+
                     <Card className="border-l-4 border-sky-500 shadow-lg">
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Settings size={18} /> Configuración de Listas</div>
                         <p className="text-xs text-slate-500 mb-6 italic">Agrega o elimina opciones para que aparezcan en los menús desplegables al crear fichas.</p>
@@ -739,32 +901,32 @@
                                 <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><MapPin size={16}/> {label}</div>
                                 <div className="grid grid-cols-2 gap-3 text-sm mb-3">
                                     <div className="flex flex-col gap-1 col-span-2">
-                                        <label className="text-[10px] font-bold text-rose-400 uppercase">Alquiler (egreso)</label>
+                                        <label className="text-2xs font-bold text-rose-400 uppercase">Alquiler (egreso)</label>
                                         <input type="number" placeholder="0" className="p-2 border border-rose-100 rounded-lg bg-rose-50/30 focus:bg-white focus:border-rose-300 outline-none"
                                             value={getVal(key, 'alquiler')} onChange={e => handleChange(key, 'alquiler', e.target.value)} />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-bold text-emerald-600 uppercase">Obra Social</label>
+                                        <label className="text-2xs font-bold text-emerald-600 uppercase">Obra Social</label>
                                         <input type="number" placeholder="0" className="p-2 border border-emerald-100 rounded-lg bg-emerald-50/30 focus:bg-white focus:border-emerald-300 outline-none"
                                             value={getVal(key, 'obraSocial')} onChange={e => handleChange(key, 'obraSocial', e.target.value)} />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] font-bold text-emerald-600 uppercase">Particular</label>
+                                        <label className="text-2xs font-bold text-emerald-600 uppercase">Particular</label>
                                         <input type="number" placeholder="0" className="p-2 border border-emerald-100 rounded-lg bg-emerald-50/30 focus:bg-white focus:border-emerald-300 outline-none"
                                             value={getVal(key, 'particular')} onChange={e => handleChange(key, 'particular', e.target.value)} />
                                     </div>
                                 </div>
                                 <div className="border-t pt-3 grid grid-cols-3 gap-1 text-xs">
                                     <div className="text-center bg-emerald-50 rounded-lg p-2">
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Ingresos</p>
+                                        <p className="text-3xs font-bold text-slate-600 uppercase mb-1">Ingresos</p>
                                         <p className="font-bold text-emerald-600">{fmt(t.ingresos)}</p>
                                     </div>
                                     <div className="text-center bg-rose-50 rounded-lg p-2">
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Egresos</p>
+                                        <p className="text-3xs font-bold text-slate-600 uppercase mb-1">Egresos</p>
                                         <p className="font-bold text-rose-500">{fmt(t.egresos)}</p>
                                     </div>
                                     <div className={`text-center rounded-lg p-2 ${t.resultado >= 0 ? 'bg-sky-50' : 'bg-orange-50'}`}>
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Resultado</p>
+                                        <p className="text-3xs font-bold text-slate-600 uppercase mb-1">Resultado</p>
                                         <p className={`font-bold ${t.resultado >= 0 ? 'text-sky-600' : 'text-orange-500'}`}>{fmt(t.resultado)}</p>
                                     </div>
                                 </div>
@@ -774,18 +936,18 @@
 
                     {/* Total del mes */}
                     <Card className="bg-slate-800 text-white border-0 shadow-xl">
-                        <div className="text-[10px] font-bold uppercase tracking-wider mb-3 text-slate-400">Total {MESES[month]} {year}</div>
+                        <div className="text-2xs font-bold uppercase tracking-wider mb-3 text-slate-400">Total {MESES[month]} {year}</div>
                         <div className="grid grid-cols-3 gap-2">
                             <div className="text-center">
-                                <p className="text-slate-400 text-[9px] uppercase font-bold mb-1">Ingresos</p>
+                                <p className="text-slate-400 text-3xs uppercase font-bold mb-1">Ingresos</p>
                                 <p className="font-bold text-emerald-400 text-base">{fmt(monthTotals.ingresos)}</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-slate-400 text-[9px] uppercase font-bold mb-1">Egresos</p>
+                                <p className="text-slate-400 text-3xs uppercase font-bold mb-1">Egresos</p>
                                 <p className="font-bold text-rose-400 text-base">{fmt(monthTotals.egresos)}</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-slate-400 text-[9px] uppercase font-bold mb-1">Resultado</p>
+                                <p className="text-slate-400 text-3xs uppercase font-bold mb-1">Resultado</p>
                                 <p className={`font-bold text-base ${monthTotals.resultado >= 0 ? 'text-sky-300' : 'text-orange-400'}`}>{fmt(monthTotals.resultado)}</p>
                             </div>
                         </div>
@@ -795,7 +957,7 @@
                     {allMonths.length > 0 && (
                         <Card>
                             <div className="text-xs font-bold uppercase tracking-wider mb-3 text-slate-600">Resumen mensual</div>
-                            <div className="flex items-center justify-between px-1 pb-2 mb-1 border-b text-[9px] text-slate-400 font-bold uppercase">
+                            <div className="flex items-center justify-between px-1 pb-2 mb-1 border-b text-3xs text-slate-400 font-bold uppercase">
                                 <span className="flex-1">Mes</span>
                                 <span className="w-16 text-right">Ingresos</span>
                                 <span className="w-16 text-right">Egresos</span>
@@ -862,7 +1024,7 @@
                         <Button onClick={handleAdd} className="py-2"><Plus size={18}/></Button>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
-                        {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No hay opciones configuradas</p>}
+                        {items.length === 0 && <p className="text-2xs text-slate-400 italic">No hay opciones configuradas</p>}
                         {items.map((item, idx) => (
                             <div key={idx} className="bg-white border border-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 hover:border-sky-300">
                                 {editingIndex === idx ? (
@@ -997,37 +1159,37 @@
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><User size={18} /> Datos Personales</div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nombre</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Nombre</label>
                                 <input placeholder="Nombre" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.firstName} onChange={e => updateField('firstName', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Apellido</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Apellido</label>
                                 <input placeholder="Apellido" required className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.lastName} onChange={e => updateField('lastName', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">DNI</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">DNI</label>
                                 <input placeholder="DNI" required type="number" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.dni} onChange={e => updateField('dni', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">F. Nacimiento</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">F. Nacimiento</label>
                                 <input required type="date" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.birthDate} onChange={e => updateField('birthDate', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Obra Social / Prepaga</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Obra Social / Prepaga</label>
                                 <input placeholder="Ej: OSDE" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.healthInsurance || ''} onChange={e => updateField('healthInsurance', e.target.value)} list="healthInsurances-list" />
                                 <datalist id="healthInsurances-list">{options.healthInsurances?.map(opt => <option key={opt} value={opt} />)}</datalist>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Plan</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Plan</label>
                                 <input placeholder="Ej: 210" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.plan || ''} onChange={e => updateField('plan', e.target.value)} list="plans-list" />
                                 <datalist id="plans-list">{options.plans?.map(opt => <option key={opt} value={opt} />)}</datalist>
                             </div>
                             <div className="flex flex-col gap-1 col-span-2">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Nro de Afiliado</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Nro de Afiliado</label>
                                 <input placeholder="Nro Afiliado" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.memberNumber || ''} onChange={e => updateField('memberNumber', e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1 col-span-2">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Teléfono de contacto</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Teléfono de contacto</label>
                                 <input placeholder="Ej: 11 1234 5678" type="tel" className="p-3 border rounded-lg bg-slate-50 w-full focus:bg-white" value={formData.phone || ''} onChange={e => updateField('phone', e.target.value)} />
                             </div>
                         </div>
@@ -1045,26 +1207,26 @@
                         <div className="flex gap-2 mb-4 text-sky-800 font-bold uppercase text-xs tracking-wider"><Stethoscope size={18} /> Consulta Actual</div>
                         <div className="space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Fecha de Consulta</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Fecha de Consulta</label>
                                 <input type="date" className="w-full p-2 border rounded-lg text-sm bg-white" value={newConsultation.date} onChange={e => setnewConsultation({...newConsultation, date: e.target.value})} />
                             </div>
                             <TagInput label="Motivo de la visita" options={options.reasons} value={newConsultation.motive} onChange={v => setnewConsultation({...newConsultation, motive: v})} />
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Peso (kg)</label>
+                                    <label className="text-2xs font-bold text-slate-600 uppercase px-1 text-center">Peso (kg)</label>
                                     <input placeholder="0.00" type="number" step="0.01" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.weight} onChange={e => setnewConsultation({...newConsultation, weight: e.target.value})} />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">Talla (cm)</label>
+                                    <label className="text-2xs font-bold text-slate-600 uppercase px-1 text-center">Talla (cm)</label>
                                     <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.height} onChange={e => setnewConsultation({...newConsultation, height: e.target.value})} />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase px-1 text-center">P.C. (cm)</label>
+                                    <label className="text-2xs font-bold text-slate-600 uppercase px-1 text-center">P.C. (cm)</label>
                                     <input placeholder="0.0" type="number" step="0.1" className="p-2 border rounded-lg text-center text-sm" value={newConsultation.headCircumference} onChange={e => setnewConsultation({...newConsultation, headCircumference: e.target.value})} />
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Evolución / Notas clínicas</label>
+                                <label className="text-2xs font-bold text-slate-600 uppercase px-1">Evolución / Notas clínicas</label>
                                 <textarea placeholder="Redactar evolución..." className="w-full p-3 border rounded-lg text-sm h-28 resize-none bg-white" value={newConsultation.notes} onChange={e => setnewConsultation({...newConsultation, notes: e.target.value})} />
                             </div>
                         </div>
@@ -1094,7 +1256,7 @@
                                             ) : (
                                                 <>
                                                     <div className="flex justify-between font-bold text-sky-600 mb-2">
-                                                        <span className="flex items-center gap-2">{formatDate(c.date)} <span className="bg-sky-50 text-[10px] px-2 py-0.5 rounded-full border border-sky-100">{calculateAgeAtDate(formData.birthDate, c.date)}</span></span>
+                                                        <span className="flex items-center gap-2">{formatDate(c.date)} <span className="bg-sky-50 text-2xs px-2 py-0.5 rounded-full border border-sky-100">{calculateAgeAtDate(formData.birthDate, c.date)}</span></span>
                                                         <div className="flex gap-2">
                                                             <button type="button" onClick={() => startEdit(c)} className="text-sky-500 hover:bg-sky-50 p-1.5 rounded-full"><Edit size={14} /></button>
                                                             <button type="button" onClick={() => askDeleteConsultation(c.id)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-full"><Trash2 size={14} /></button>
@@ -1102,7 +1264,7 @@
                                                     </div>
                                                     <p className="font-semibold text-slate-800 mb-1">{c.motive?.join(', ') || 'Sin motivo especificado'}</p>
                                                     {(c.weight || c.height || c.headCircumference) && (
-                                                        <p className="text-[10px] text-slate-500 font-extrabold uppercase mb-2">
+                                                        <p className="text-2xs text-slate-600 font-extrabold uppercase mb-2">
                                                             {c.weight && `P: ${c.weight}kg `}{c.height && `| T: ${c.height}cm `}{c.headCircumference && `| PC: ${c.headCircumference}cm`}
                                                         </p>
                                                     )}
